@@ -6,15 +6,11 @@ from contextlib import nullcontext
 from typing import List
 
 import torch
-from transformers import AutoTokenizer, AutoConfig, AutoModelForCausalLM, enable_full_determinism
-from datasets import load_dataset, DownloadConfig
+from transformers import AutoConfig, AutoModelForCausalLM, enable_full_determinism
 from accelerate import Accelerator
-from torch.utils.data import DataLoader
-from torch.utils.data.distributed import DistributedSampler
-from torch.utils.data import SequentialSampler
 import wandb
 
-from datasets.utils.logging import disable_progress_bar
+from data_utils import get_tokenizer, load_and_prepare_dataset
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -28,6 +24,7 @@ def get_args():
     parser.add_argument("--activation_checkpointing", action="store_true")
     parser.add_argument("--eval", action="store_true")
     parser.add_argument("--dataset_name", type=str, default="wikitext", help="Dataset name for pretraining evaluation")
+    parser.add_argument("--dataset_percentage", type=float, default=10.0, help="Percentage of dataset to use (e.g., 10.0 for 10 percent)")
     parser.add_argument("--num_layers", type=int, default=0)
     parser.add_argument("--attn_impl", type=str, default="sdpa")
     parser.add_argument("--compile", action="store_true")
@@ -37,10 +34,10 @@ def get_args():
     parser.add_argument("--profile", action="store_true")
     parser.add_argument("--deterministic", action="store_true")
     parser.add_argument("--profile_dir", type=str, default=None)
-    parser.add_argument("--bench_step", type=int, default=30)
+    parser.add_argument("--bench_step", type=int, default=1000)
     parser.add_argument("--warmup_step", type=int, default=15)
     parser.add_argument("--zero_stage", type=int, default=3)
-    parser.add_argument("--log_interval", type=int, default=1)
+    parser.add_argument("--log_interval", type=int, default=10)
     parser.add_argument("--save_weights", action="store_true")
     parser.add_argument("--load_weights", action="store_true")
     
@@ -107,49 +104,22 @@ def main():
         model_config.num_hidden_layers = args.num_layers
         model = AutoModelForCausalLM.from_config(model_config, trust_remote_code=True)
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+    # Load tokenizer
+    tokenizer = get_tokenizer(model_name, trust_remote_code=True)
 
     if args.activation_checkpointing:
         model.gradient_checkpointing_enable()
 
-    tokenizer.pad_token = tokenizer.eos_token
-
-    # Load dataset
-    if accelerator.is_main_process:
-        print("Loading dataset...")
-    else:
-        disable_progress_bar()
-    
-    # Load the specified dataset
-    if args.dataset_name == "wikitext":
-        dataset = load_dataset('wikitext', 'wikitext-103-raw-v1', split='train', download_config=DownloadConfig(disable_tqdm=True))
-        text_column = 'text'
-    elif args.dataset_name == "openwebtext":
-        dataset = load_dataset('openwebtext', split='train[:1%]', download_config=DownloadConfig(disable_tqdm=True))  # Use 1% for benchmarking
-        text_column = 'text'
-    elif args.dataset_name == "c4":
-        dataset = load_dataset('c4', 'en', split='train[:0.1%]', download_config=DownloadConfig(disable_tqdm=True))  # Use 0.1% for benchmarking
-        text_column = 'text'
-    elif args.dataset_name == "ag_news":
-        dataset = load_dataset('ag_news', split='train[:100%]', download_config=DownloadConfig(disable_tqdm=True))
-        text_column = 'text'
-    else:
-        # Try to load as custom dataset
-        dataset = load_dataset(args.dataset_name, split='train', download_config=DownloadConfig(disable_tqdm=True))
-        # Try common text column names
-        text_column = 'text' if 'text' in dataset.column_names else dataset.column_names[0]
-
-    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-    tokenizer.pad_token = tokenizer.convert_ids_to_tokens(2)
-
-    def tokenize_function(examples):
-        return tokenizer(examples[text_column], padding='max_length', max_length=args.seq_length, truncation=True)
-
-    tokenized_dataset = dataset.map(tokenize_function, batched=True, num_proc=1, keep_in_memory=True)
-    tokenized_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask'])
-
-    sampler = DistributedSampler(tokenized_dataset, num_replicas=accelerator.num_processes, rank=accelerator.process_index)
-    data_loader = DataLoader(tokenized_dataset, batch_size=args.batch_size, sampler=sampler, num_workers=4)
+    # Load and prepare dataset
+    _, data_loader, _ = load_and_prepare_dataset(
+        dataset_name=args.dataset_name,
+        dataset_percentage=args.dataset_percentage / 100.0,  # Convert percentage to fraction
+        tokenizer=tokenizer,
+        seq_length=args.seq_length,
+        accelerator=accelerator,
+        batch_size=args.batch_size,
+        is_main_process=accelerator.is_main_process
+    )
 
     # Prepare optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
@@ -190,6 +160,7 @@ def main():
                 "gradient_accumulation_steps": args.gradient_accumulation_steps,
                 "activation_checkpointing": args.activation_checkpointing,
                 "dataset_name": args.dataset_name,
+                "dataset_percentage": args.dataset_percentage,
                 "num_layers": args.num_layers,
                 "attn_impl": args.attn_impl,
                 "compile": args.compile,
