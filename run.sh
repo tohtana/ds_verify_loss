@@ -30,11 +30,11 @@ echo "NUM_NODES: ${NUM_NODES} NGPUS_PER_NODE: ${NGPUS_PER_NODE} NUM_PROCESSES: $
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --host-ip)
+        --host_ip)
             HOST_IP="$2"
             shift 2
             ;;
-        --machine-rank)
+        --machine_rank)
             MACHINE_RANK="$2"
             shift 2
             ;;
@@ -42,26 +42,26 @@ while [[ $# -gt 0 ]]; do
             BACKEND="$2"
             shift 2
             ;;
-        --zero-stage)
+        --zero_stage)
             ZERO_STAGE="$2"
             shift 2
             ;;
-        --batch-size)
+        --batch_size)
             BATCH_SIZE="$2"
             EXTRA_OPTS="${EXTRA_OPTS} --batch_size $2"
             shift 2
             ;;
-        --seq-length)
+        --seq_length)
             SEQ_LENGTH="$2"
             EXTRA_OPTS="${EXTRA_OPTS} --seq_length $2"
             shift 2
             ;;
-        --gradient-accumulation-steps)
+        --gradient_accumulation_steps)
             GRADIENT_ACCUMULATION_STEPS="$2"
             EXTRA_OPTS="${EXTRA_OPTS} --gradient_accumulation_steps $2"
             shift 2
             ;;
-        --activation-checkpointing)
+        --activation_checkpointing)
             ACTIVATION_CHECKPOINTING=1
             EXTRA_OPTS="${EXTRA_OPTS} --activation_checkpointing"
             shift
@@ -85,53 +85,39 @@ while [[ $# -gt 0 ]]; do
             EXTRA_OPTS="${EXTRA_OPTS} $1 $2"
             shift 2
             ;;
-        --profile)
-            EXTRA_OPTS="${EXTRA_OPTS} $1"
-            shift
-            ;;
-        --profile-dir)
-            EXTRA_OPTS="${EXTRA_OPTS} --profile_dir $2"
-            shift 2
-            ;;
         --model)
             MODEL="$2"
             shift 2
             ;;
-        --num-layers)
-            EXTRA_OPTS="${EXTRA_OPTS} --num_layers $2"
-            shift 2
-            ;;
-        --attn-impl)
-            EXTRA_OPTS="${EXTRA_OPTS} --attn_impl $2"
-            shift 2
-            ;;
-        --eval)
-            EXTRA_OPTS="${EXTRA_OPTS} --eval"
-            shift
-            ;;
-        --debug-log)
+        --debug_log)
             DEBUG_LOG=1
             shift
             ;;
-        --sync-before-reduce)
+        --sync_before_reduce)
             SYNC_BEFORE_REDUCE=1
             shift
             ;;
-        --sync-after-reduce)
+        --sync_after_reduce)
             SYNC_AFTER_REDUCE=1
             shift
             ;;
-        --sync-before-allgather)
+        --sync_before_allgather)
             SYNC_BEFORE_ALLGATHER=1
             shift
             ;;
-        --sync-after-allgather)
+        --sync_after_allgather)
             SYNC_AFTER_ALLGATHER=1
             shift
             ;;
         *)
-            EXTRA_OPTS="${EXTRA_OPTS} $1"
-            shift
+            # Check if the next argument looks like a value (doesn't start with --)
+            if [[ $# -gt 1 && ! "$2" =~ ^-- ]]; then
+                EXTRA_OPTS="${EXTRA_OPTS} $1 $2"
+                shift 2
+            else
+                EXTRA_OPTS="${EXTRA_OPTS} $1"
+                shift
+            fi
             ;;
     esac
 done
@@ -229,7 +215,7 @@ echo "Logging to ${LOG_FILE}"
 accelerate launch --main_process_ip ${HOST_IP} --main_process_port 12345 \
 --num_machines ${NUM_NODES} --num_processes ${NUM_PROCESSES} --machine_rank ${MACHINE_RANK} \
 --config_file configs/config.yaml \
-run_bench_lm.py \
+verify_loss.py \
 --model_name "${MODEL}" \
 --zero_stage ${ZERO_STAGE} \
 ${GAS_OPTS} \
