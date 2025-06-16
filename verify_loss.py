@@ -18,7 +18,7 @@ def get_args():
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--num_epochs", type=int, default=100)
     parser.add_argument("--seq_length", type=int, default=512)
-    parser.add_argument("--learning_rate", type=float, default=2e-5)
+    parser.add_argument("--learning_rate", type=float, default=5e-6)
     parser.add_argument("--max_grad_norm", type=float, default=1.0)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
     parser.add_argument("--activation_checkpointing", action="store_true")
@@ -213,6 +213,9 @@ def main():
 
     global_step = 0
     iter_times = []
+    
+    # Loss averaging for logging
+    losses = []
 
     # See https://github.com/microsoft/DeepSpeed/issues/6793
     acc_context = nullcontext if is_deepspeed else accelerator.accumulate
@@ -237,9 +240,16 @@ def main():
                     optimizer.zero_grad()
                     global_step += 1
 
+                    # Accumulate loss for averaging
                     if update_step:
+                        losses.append(loss.item())
+
+                    if update_step:
+                        # Calculate average loss for logging
+                        avg_loss = sum(losses) / len(losses) if losses else loss.item()
+                        
                         if accelerator.is_main_process and global_step % (args.log_interval * args.gradient_accumulation_steps) == 0:
-                            print(f"Epoch {epoch+1}, Step {global_step}, Loss: {loss.item()} sync: {accelerator.sync_gradients} time: {time.time() - start_iter} alloc_mem: {torch.cuda.memory_allocated()} peak_mem: {torch.cuda.max_memory_allocated()}")
+                            print(f"Epoch {epoch+1}, Step {global_step}, Loss: {avg_loss:.6f} sync: {accelerator.sync_gradients} time: {time.time() - start_iter} alloc_mem: {torch.cuda.memory_allocated()} peak_mem: {torch.cuda.max_memory_allocated()}")
 
                         iter_times.append(time.time() - start_iter)
                         
@@ -247,13 +257,16 @@ def main():
                         if args.use_wandb and accelerator.is_main_process and global_step % (args.log_interval * args.gradient_accumulation_steps) == 0:
                             wandb.log({
                                 "timing/iteration_time": time.time() - start_iter,
-                                "train/loss": loss.item(),
+                                "train/loss": avg_loss,
                                 "train/epoch": epoch + 1,
                                 "train/global_step": global_step,
                                 "train/learning_rate": args.learning_rate,
                                 "system/cuda_memory_allocated": torch.cuda.memory_allocated(),
                                 "system/cuda_memory_peak": torch.cuda.max_memory_allocated(),
                             }, step=global_step)
+                            
+                            # Reset loss list after logging
+                            losses = []
                         
                         start_iter = time.time()
 

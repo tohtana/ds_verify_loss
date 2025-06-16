@@ -71,10 +71,8 @@ def load_and_prepare_dataset(
     if dataset_percentage >= 1.0:
         split_str = "train"
     else:
-        # Convert to integer percentage for HuggingFace datasets
+        # Convert to integer percentage to avoid decimal points
         percentage_int = int(dataset_percentage * 100)
-        if percentage_int == 0:
-            percentage_int = 1  # Minimum 1% to avoid empty dataset
         split_str = f"train[:{percentage_int}%]"
     
     # Load the specified dataset
@@ -90,7 +88,7 @@ def load_and_prepare_dataset(
     elif dataset_name == "c4":
         # For C4, use even smaller percentage since it's massive
         if dataset_percentage >= 1.0:
-            split_str = "train[:1%]"  # Cap at 1% for full dataset requests (0.1% would be too small for integer conversion)
+            split_str = "train[:0.1%]"  # Cap at 0.1% for full dataset requests
         dataset = load_dataset('c4', 'en', split=split_str, download_config=DownloadConfig(disable_tqdm=True))
         text_column = 'text'
     elif dataset_name == "ag_news":
