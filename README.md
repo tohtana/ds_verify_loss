@@ -72,6 +72,7 @@ The generated `report.md` includes:
 6. **Appendix** - WandB run IDs and log file references
 
 
+
 ## Data Sources
 
 The analysis script extracts data from multiple sources:
@@ -79,6 +80,116 @@ The analysis script extracts data from multiple sources:
 1. **Training Logs** - Iteration times, loss values, memory usage
 2. **WandB Logs** - When available, provides additional metrics
 3. **Experiment Metadata** - Configuration and execution details
+
+
+## Run a specific configuration
+
+The `run.sh` script provides a flexible way to run individual training experiments with customizable parameters. Unlike `run_batch.sh` which runs predefined batch experiments, `run.sh` allows you to test specific configurations.
+
+### Basic Usage
+
+```bash
+./run.sh [Options]
+```
+
+### Configuration Items
+
+The following parameters can be configured through command line arguments or environment variables:
+
+#### Core Training Parameters
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--model_name` | `meta-llama/Llama-2-7b-hf` | Hugging Face model identifier |
+| `--batch_size` | `1` | Micro batch size per GPU |
+| `--seq_length` | `512` | Maximum sequence length |
+| `--num_epochs` | `5` | Number of training epochs |
+| `--learning_rate` | `1e-6` | Learning rate for optimizer |
+| `--max_grad_norm` | `1.0` | Gradient clipping threshold |
+| `--gradient_accumulation_steps` | `1` | Steps to accumulate gradients |
+| `--log_interval` | `10` | Steps between logging outputs |
+
+#### Backend and Optimization
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--backend` | `deepspeed` | Training backend (`deepspeed`, `fsdp`, `ddp`, `singlegpu`) |
+| `--zero_stage` | `3` | ZeRO optimization stage (0, 1, 2, 3) |
+| `--activation_checkpointing` | `false` | Enable activation checkpointing |
+| `--compile` | `false` | Enable PyTorch compilation |
+| `--deepcompile` | `false` | Enable DeepSpeed compilation |
+| `--passes` | `ALL` | Compilation passes to use |
+| `--eager` | `false` | Use eager execution mode |
+| `--offload_opt_states` | `false` | Offload optimizer states to CPU |
+
+#### Memory and Performance
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--fp16` | `false` | Use 16-bit floating point (default: bf16) |
+| `--deterministic` | `false` | Enable deterministic training |
+| `--profile` | `false` | Enable performance profiling |
+| `--profile_dir` | `None` | Directory for profiling outputs |
+| `--bench_step` | `100` | Steps for benchmarking |
+| `--warmup_step` | `15` | Warmup steps before benchmarking |
+
+#### Data and Evaluation
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--dataset_name` | `wikitext` | Dataset for pretraining evaluation |
+| `--dataset_percentage` | `10.0` | Percentage of dataset to use |
+| `--eval` | `false` | Enable evaluation mode |
+| `--num_layers` | `0` | Override number of model layers (0 = use model default) |
+| `--attn_impl` | `sdpa` | Attention implementation |
+
+#### Model Persistence
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--save_weights` | `false` | Save model weights after training |
+| `--load_weights` | `false` | Load model weights before training |
+
+#### Distributed Training
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--host_ip` | `127.0.0.1` | Main process IP address |
+| `--machine_rank` | `0` | Rank of current machine |
+| `NUM_NODES` | `1` | Number of nodes (environment variable) |
+| `NGPUS_PER_NODE` | `auto` | GPUs per node (environment variable) |
+
+#### Logging and Monitoring
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--use_wandb` | `false` | Enable Weights & Biases logging |
+| `--wandb_project` | `ds-verify-loss` | WandB project name |
+| `--wandb_run_name` | `None` | Custom WandB run name |
+| `--wandb_tags` | `[]` | Tags for WandB run |
+| `--debug_log` | `false` | Enable detailed debug logging |
+
+#### Synchronization (Debug)
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--sync_before_reduce` | `false` | Synchronize before gradient reduction |
+| `--sync_after_reduce` | `false` | Synchronize after gradient reduction |
+| `--sync_before_allgather` | `false` | Synchronize before allgather operations |
+| `--sync_after_allgather` | `false` | Synchronize after allgather operations |
+
+**Default Configuration:**
+- Backend: DeepSpeed
+- Model: meta-llama/Meta-Llama-3-8B
+- ZeRO Stage: 3
+- Batch Size: 1
+- Sequence Length: 512
+- Gradient Accumulation Steps: 1
+
+
+### Output
+
+The script generates:
+- Configuration files in `configs/` directory
+- Training logs in `logs/` directory with descriptive filenames
+- Console output with real-time training progress
+
+**Log File Naming Convention:**
+```
+logs/debug_n{rank}_{model}_{backend}_np{processes}z{zero_stage}c{compile}dc{deepcompile}E{eager}b{batch_size}seq{seq_length}g{gas}a{activation_checkpoint}p{passes}.log
+```
 
 
 ## Requirements
