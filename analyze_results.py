@@ -61,7 +61,7 @@ def parse_log_file(log_path: str) -> Dict:
     
     return metrics
 
-def extract_wandb_data(wandb_run_path: str, condition: str = None) -> Dict:
+def extract_wandb_data(wandb_run_path: str, condition: str = None, offline_mode: bool = False) -> Dict:
     """Extract data from wandb run directory or API."""
     metrics = {
         'losses': [],
@@ -73,8 +73,8 @@ def extract_wandb_data(wandb_run_path: str, condition: str = None) -> Dict:
     }
     
     try:
-        # First try to extract from wandb API if run ID is available
-        if condition and 'wandb_run' in str(wandb_run_path):
+        # First try to extract from wandb API if run ID is available and not in offline mode
+        if condition and 'wandb_run' in str(wandb_run_path) and not offline_mode:
             run_id = wandb_run_path
             try:
                 api = wandb.Api()
@@ -187,11 +187,12 @@ def create_loss_comparison_plot(results_data: Dict, output_path: str):
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
 
-def create_iteration_time_plot(results_data: Dict, output_path: str):
-    """Create iteration time comparison bar plot with enhanced styling."""
+def create_iteration_time_plot(results_data: Dict, output_path: str, warmup_steps: int = 15):
+    """Create iteration time comparison bar plot with enhanced styling, excluding warmup steps."""
     conditions = []
     avg_times = []
     std_times = []
+    warmup_excluded_counts = []
     
     for condition, data in results_data.items():
         if data['iteration_times']:
@@ -200,12 +201,29 @@ def create_iteration_time_plot(results_data: Dict, output_path: str):
             conditions.append(label)
             
             times = np.array(data['iteration_times'])
-            # Remove outliers (times > 99th percentile) for better visualization
-            p99 = np.percentile(times, 99)
-            filtered_times = times[times <= p99]
             
-            avg_times.append(np.mean(filtered_times))
-            std_times.append(np.std(filtered_times))
+            # Exclude warmup steps
+            if len(times) > warmup_steps:
+                times_after_warmup = times[warmup_steps:]
+                warmup_excluded = warmup_steps
+            else:
+                # If we have fewer steps than warmup, use all steps but log a warning
+                times_after_warmup = times
+                warmup_excluded = 0
+                print(f"⚠️  Warning: {condition} has only {len(times)} steps, less than warmup_steps={warmup_steps}")
+            
+            warmup_excluded_counts.append(warmup_excluded)
+            
+            # Remove outliers (times > 99th percentile) for better visualization
+            if len(times_after_warmup) > 0:
+                p99 = np.percentile(times_after_warmup, 99)
+                filtered_times = times_after_warmup[times_after_warmup <= p99]
+                
+                avg_times.append(np.mean(filtered_times))
+                std_times.append(np.std(filtered_times))
+            else:
+                avg_times.append(0)
+                std_times.append(0)
     
     if not conditions:
         print("No iteration time data found for plotting")
@@ -229,23 +247,28 @@ def create_iteration_time_plot(results_data: Dict, output_path: str):
     
     plt.xlabel('Configuration', fontsize=14, fontweight='bold')
     plt.ylabel('Average Iteration Time (seconds)', fontsize=14, fontweight='bold')
-    plt.title('Training Iteration Time Comparison', fontsize=16, fontweight='bold')
+    plt.title(f'Training Iteration Time Comparison\n(Excluding {warmup_steps} warmup steps)', fontsize=16, fontweight='bold')
     plt.xticks(rotation=45, ha='right', fontsize=12)
     plt.yticks(fontsize=12)
     
     # Add value labels on bars
-    for bar, avg_time, std_time in zip(bars, avg_times, std_times):
+    for bar, avg_time, std_time, excluded in zip(bars, avg_times, std_times, warmup_excluded_counts):
         height = bar.get_height() + std_time
         plt.text(bar.get_x() + bar.get_width()/2, height + max(avg_times)*0.02,
-                f'{avg_time:.3f}s\n±{std_time:.3f}', ha='center', va='bottom', 
-                fontweight='bold', fontsize=10)
+                f'{avg_time:.3f}s\n±{std_time:.3f}\n({excluded} excluded)', 
+                ha='center', va='bottom', fontweight='bold', fontsize=9)
     
     # Add grid for better readability
     plt.grid(True, alpha=0.3, axis='y')
+    
+    # Add note about warmup exclusion
+    plt.figtext(0.02, 0.02, f'Note: First {warmup_steps} warmup steps excluded from analysis', 
+                fontsize=10, style='italic', alpha=0.7)
+    
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"✓ Iteration time plot saved to: {output_path}")
+    print(f"✓ Iteration time plot saved to: {output_path} (warmup steps: {warmup_steps} excluded)")
 
 def create_memory_usage_plot(results_data: Dict, output_path: str):
     """Create memory usage comparison plot."""
@@ -284,7 +307,7 @@ def create_memory_usage_plot(results_data: Dict, output_path: str):
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
 
-def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dict):
+def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dict, warmup_steps: int = 15):
     """Generate a comprehensive markdown report."""
     report_path = os.path.join(results_dir, 'report.md')
     
@@ -317,7 +340,8 @@ def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dic
         f.write("- **Batch Size:** 1 per GPU\n")
         f.write("- **Gradient Accumulation Steps:** 4\n")
         f.write("- **Sequence Length:** 512\n")
-        f.write("- **Epochs:** 5\n\n")
+        f.write("- **Epochs:** 5\n")
+        f.write(f"- **Warmup Steps Excluded:** {warmup_steps} (for timing analysis)\n\n")
         
         # Results Section
         f.write("## Results\n\n")
@@ -353,29 +377,40 @@ def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dic
         f.write("### Performance Analysis\n\n")
         f.write("![Iteration Time Comparison](iteration_time_comparison.png)\n\n")
         
-        # Analyze iteration times
+        # Analyze iteration times (excluding warmup steps)
         perf_analysis = {}
         for condition, data in results_data.items():
             if data['iteration_times']:
                 zero_stage, variant = parse_condition_name(condition)
                 times = np.array(data['iteration_times'])
-                # Filter outliers
-                p99 = np.percentile(times, 99)
-                filtered_times = times[times <= p99]
-                perf_analysis[condition] = {
-                    'zero_stage': zero_stage,
-                    'variant': variant,
-                    'avg_time': np.mean(filtered_times),
-                    'std_time': np.std(filtered_times)
-                }
+                
+                # Exclude warmup steps
+                if len(times) > warmup_steps:
+                    times_after_warmup = times[warmup_steps:]
+                else:
+                    times_after_warmup = times
+                
+                if len(times_after_warmup) > 0:
+                    # Filter outliers
+                    p99 = np.percentile(times_after_warmup, 99)
+                    filtered_times = times_after_warmup[times_after_warmup <= p99]
+                    perf_analysis[condition] = {
+                        'zero_stage': zero_stage,
+                        'variant': variant,
+                        'avg_time': np.mean(filtered_times),
+                        'std_time': np.std(filtered_times),
+                        'warmup_excluded': min(warmup_steps, len(times)),
+                        'total_steps': len(times)
+                    }
         
         if perf_analysis:
-            f.write("**Performance Summary:**\n\n")
-            f.write("| Configuration | Avg. Iteration Time | Std. Dev |\n")
-            f.write("|---------------|--------------------|---------|\n")
+            f.write(f"**Performance Summary** *(excluding first {warmup_steps} warmup steps)*:\n\n")
+            f.write("| Configuration | Avg. Iteration Time | Std. Dev | Steps Used |\n")
+            f.write("|---------------|--------------------|---------|-----------|\n")
             for condition, analysis in perf_analysis.items():
+                steps_used = analysis['total_steps'] - analysis['warmup_excluded']
                 f.write(f"| {analysis['zero_stage']} ({analysis['variant']}) | ")
-                f.write(f"{analysis['avg_time']:.3f}s | {analysis['std_time']:.3f}s |\n")
+                f.write(f"{analysis['avg_time']:.3f}s | {analysis['std_time']:.3f}s | {steps_used}/{analysis['total_steps']} |\n")
             f.write("\n")
         
         # Memory Analysis
@@ -433,6 +468,8 @@ def main():
                        help='Base directory for wandb runs (default: wandb)')
     parser.add_argument('--offline', action='store_true',
                        help='Run in offline mode (no wandb API calls)')
+    parser.add_argument('--warmup-steps', type=int, default=15,
+                       help='Number of warmup steps to exclude from timing analysis (default: 15)')
     
     args = parser.parse_args()
     
@@ -470,7 +507,7 @@ def main():
         if wandb_run and wandb_run != 'unknown' and not args.offline:
             print(f"  Extracting from wandb run: {wandb_run}")
             try:
-                wandb_metrics = extract_wandb_data(wandb_run, condition)
+                wandb_metrics = extract_wandb_data(wandb_run, condition, args.offline)
                 if wandb_metrics['losses'] or wandb_metrics['iteration_times']:
                     metrics.update(wandb_metrics)
                     print(f"  ✓ Extracted {len(metrics['losses'])} loss values and {len(metrics['iteration_times'])} timing values from wandb")
@@ -507,12 +544,12 @@ def main():
     memory_plot_path = os.path.join(plots_dir, 'memory_usage_comparison.png')
     
     create_loss_comparison_plot(results_data, loss_plot_path)
-    create_iteration_time_plot(results_data, time_plot_path)
+    create_iteration_time_plot(results_data, time_plot_path, args.warmup_steps)
     create_memory_usage_plot(results_data, memory_plot_path)
     
     # Generate report
     print("Generating markdown report...")
-    generate_markdown_report(args.results_dir, results_data, metadata)
+    generate_markdown_report(args.results_dir, results_data, metadata, args.warmup_steps)
     
     print("\n✅ Analysis complete!")
     print(f"📊 Plots saved to: {plots_dir}")

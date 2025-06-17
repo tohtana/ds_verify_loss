@@ -4,11 +4,12 @@
 # This script runs six conditions and collects metrics for analysis
 
 COMPILE_OPTS="--compile"
-DC_OPTS="${DC_OPTS}"
-ACC_OPTS="--gradient-accumulation-steps 4"
+DC_OPTS="${COMPILE_OPTS} --deepcompile"
+ACC_OPTS="--gradient_accumulation_steps 4"
 AC_OPTS="--activation-checkpointing"
 
-COMMON_ARGS="--dataset_percentage 20.0"
+COMMON_ARGS="${ACC_OPTS} --dataset_percentage 20.0"
+
 
 # Create results directory
 RESULTS_DIR="results_$(date +%Y%m%d_%H%M%S)"
@@ -18,12 +19,12 @@ echo "Starting batch experiments - results will be saved to ${RESULTS_DIR}"
 
 # Define test conditions
 declare -A CONDITIONS=(
-    ["z1_baseline"]="--backend deepspeed --zero_stage 1 --gradient_accumulation_steps 4 --use_wandb"
-    ["z2_baseline"]="--backend deepspeed --zero_stage 2 --gradient_accumulation_steps 4 --use_wandb"
-    ["z3_baseline"]="--backend deepspeed --zero_stage 3 --gradient_accumulation_steps 4 --use_wandb"
-    ["z1_deepcompile"]="--backend deepspeed --zero_stage 1 --gradient_accumulation_steps 4 ${DC_OPTS} --use_wandb"
-    ["z2_deepcompile"]="--backend deepspeed --zero_stage 2 --gradient_accumulation_steps 4 ${DC_OPTS} --use_wandb"
-    ["z3_deepcompile"]="--backend deepspeed --zero_stage 3 --gradient_accumulation_steps 4 ${DC_OPTS} --use_wandb"
+    ["z1_baseline"]="--backend deepspeed --zero_stage 1 ${COMMON_ARGS} --use_wandb"
+    ["z2_baseline"]="--backend deepspeed --zero_stage 2 ${COMMON_ARGS} --use_wandb"
+    ["z3_baseline"]="--backend deepspeed --zero_stage 3 ${COMMON_ARGS} --use_wandb"
+    ["z1_deepcompile"]="--backend deepspeed --zero_stage 1 ${COMMON_ARGS} ${DC_OPTS} --use_wandb"
+    ["z2_deepcompile"]="--backend deepspeed --zero_stage 2 ${COMMON_ARGS} ${DC_OPTS} --use_wandb"
+    ["z3_deepcompile"]="--backend deepspeed --zero_stage 3 ${COMMON_ARGS} ${DC_OPTS} --use_wandb"
 )
 
 # Track completion and wandb runs

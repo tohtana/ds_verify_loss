@@ -16,9 +16,9 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", type=str, default="meta-llama/Llama-2-7b-hf")
     parser.add_argument("--batch_size", type=int, default=1)
-    parser.add_argument("--num_epochs", type=int, default=100)
+    parser.add_argument("--num_epochs", type=int, default=5)
     parser.add_argument("--seq_length", type=int, default=512)
-    parser.add_argument("--learning_rate", type=float, default=5e-6)
+    parser.add_argument("--learning_rate", type=float, default=1e-6)
     parser.add_argument("--max_grad_norm", type=float, default=1.0)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
     parser.add_argument("--activation_checkpointing", action="store_true")
@@ -34,7 +34,7 @@ def get_args():
     parser.add_argument("--profile", action="store_true")
     parser.add_argument("--deterministic", action="store_true")
     parser.add_argument("--profile_dir", type=str, default=None)
-    parser.add_argument("--bench_step", type=int, default=1000)
+    parser.add_argument("--bench_step", type=int, default=100)
     parser.add_argument("--warmup_step", type=int, default=15)
     parser.add_argument("--zero_stage", type=int, default=3)
     parser.add_argument("--log_interval", type=int, default=10)
@@ -100,8 +100,9 @@ def main():
         model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=True)
     else:
         model_config = AutoConfig.from_pretrained(model_name, attn_implementation=args.attn_impl, trust_remote_code=True)
-        print(f"num_hidden_layers: {model_config.num_hidden_layers} -> {args.num_layers}")
-        model_config.num_hidden_layers = args.num_layers
+        if args.num_layers > 0:
+            print(f"num_hidden_layers: {model_config.num_hidden_layers} -> {args.num_layers}")
+            model_config.num_hidden_layers = args.num_layers
         model = AutoModelForCausalLM.from_config(model_config, trust_remote_code=True)
 
     # Load tokenizer
@@ -138,6 +139,8 @@ def main():
                f"B{args.backend}z{args.zero_stage}" \
                f"L{0 if args.num_layers is None else args.num_layers}" \
                f"bs{args.batch_size}seq{args.seq_length}acc{args.gradient_accumulation_steps}ac{1 if args.activation_checkpointing else 0}" \
+               f"c{1 if args.compile else 0}" \
+               f"dc{1 if is_deepcompile else 0}" \
                f"pass_{'none' if args.passes is None else args.passes.replace(',', '_')}_" \
                f"os{1 if args.offload_opt_states else 0}" \
                f"T{timestamp}"
