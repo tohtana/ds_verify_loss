@@ -1,3 +1,5 @@
+configs/config.yaml
+configs/ds_config.json
 wandb
 logs
 __pycache__
