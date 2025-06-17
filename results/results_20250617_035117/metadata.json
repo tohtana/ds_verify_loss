@@ -1,0 +1,42 @@
+{
+    "experiment_date": "2025-06-17T04:31:10+00:00",
+    "condition_order": ["z1_baseline", "z2_baseline", "z3_baseline", "z1_deepcompile", "z2_deepcompile", "z3_deepcompile"],
+    "conditions": {
+        "z1_baseline": {
+            "command": "--backend deepspeed --zero_stage 1 --gradient_accumulation_steps 4 --dataset_percentage 20.0 --use_wandb",
+            "exit_code": 0,
+            "wandb_run": "unknown"
+        }
+,
+        "z2_baseline": {
+            "command": "--backend deepspeed --zero_stage 2 --gradient_accumulation_steps 4 --dataset_percentage 20.0 --use_wandb",
+            "exit_code": 0,
+            "wandb_run": "unknown"
+        }
+,
+        "z3_baseline": {
+            "command": "--backend deepspeed --zero_stage 3 --gradient_accumulation_steps 4 --dataset_percentage 20.0 --use_wandb",
+            "exit_code": 0,
+            "wandb_run": "unknown"
+        }
+,
+        "z1_deepcompile": {
+            "command": "--backend deepspeed --zero_stage 1 --gradient_accumulation_steps 4 --dataset_percentage 20.0 --compile --deepcompile --use_wandb",
+            "exit_code": 0,
+            "wandb_run": "unknown"
+        }
+,
+        "z2_deepcompile": {
+            "command": "--backend deepspeed --zero_stage 2 --gradient_accumulation_steps 4 --dataset_percentage 20.0 --compile --deepcompile --use_wandb",
+            "exit_code": 0,
+            "wandb_run": "unknown"
+        }
+,
+        "z3_deepcompile": {
+            "command": "--backend deepspeed --zero_stage 3 --gradient_accumulation_steps 4 --dataset_percentage 20.0 --compile --deepcompile --use_wandb",
+            "exit_code": 0,
+            "wandb_run": "unknown"
+        }
+
+    }
+}

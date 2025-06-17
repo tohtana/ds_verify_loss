@@ -1,0 +1,46 @@
+=== Starting batch experiments ===
+Start time: Tue Jun 17 03:51:17 UTC 2025
+
+Running condition: z1_baseline
+Command: bash ./run.sh --backend deepspeed --zero_stage 1 --gradient_accumulation_steps 4 --dataset_percentage 20.0 --use_wandb
+Condition z1_baseline completed with exit code 0
+Detailed log saved: z1_baseline_detailed.log
+
+Running condition: z2_baseline
+Command: bash ./run.sh --backend deepspeed --zero_stage 2 --gradient_accumulation_steps 4 --dataset_percentage 20.0 --use_wandb
+Condition z2_baseline completed with exit code 0
+Detailed log saved: z2_baseline_detailed.log
+
+Running condition: z3_baseline
+Command: bash ./run.sh --backend deepspeed --zero_stage 3 --gradient_accumulation_steps 4 --dataset_percentage 20.0 --use_wandb
+Condition z3_baseline completed with exit code 0
+Detailed log saved: z3_baseline_detailed.log
+
+Running condition: z1_deepcompile
+Command: bash ./run.sh --backend deepspeed --zero_stage 1 --gradient_accumulation_steps 4 --dataset_percentage 20.0 --compile --deepcompile --use_wandb
+Condition z1_deepcompile completed with exit code 0
+Detailed log saved: z1_deepcompile_detailed.log
+
+Running condition: z2_deepcompile
+Command: bash ./run.sh --backend deepspeed --zero_stage 2 --gradient_accumulation_steps 4 --dataset_percentage 20.0 --compile --deepcompile --use_wandb
+Condition z2_deepcompile completed with exit code 0
+Detailed log saved: z2_deepcompile_detailed.log
+
+Running condition: z3_deepcompile
+Command: bash ./run.sh --backend deepspeed --zero_stage 3 --gradient_accumulation_steps 4 --dataset_percentage 20.0 --compile --deepcompile --use_wandb
+Condition z3_deepcompile completed with exit code 0
+Detailed log saved: z3_deepcompile_detailed.log
+
+=== Experiment Summary ===
+End time: Tue Jun 17 04:31:10 UTC 2025
+
+| Condition | Status | WandB Run |
+|-----------|--------|-----------|
+| z1_baseline | SUCCESS | unknown |
+| z2_baseline | SUCCESS | unknown |
+| z3_baseline | SUCCESS | unknown |
+| z1_deepcompile | SUCCESS | unknown |
+| z2_deepcompile | SUCCESS | unknown |
+| z3_deepcompile | SUCCESS | unknown |
+
+Results saved to: results/results_20250617_035117

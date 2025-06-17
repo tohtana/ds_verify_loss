@@ -1,0 +1,559 @@
+NUM_NODES: 1 NGPUS_PER_NODE: 8 NUM_PROCESSES: 8
+HOST_IP: 127.0.0.1
+NUM_NODES: 1
+NUM_PROCESSES: 8
+BACKEND: deepspeed
+ZERO_STAGE: 1
+MODEL: meta-llama/Meta-Llama-3-8B
+GRADIENT_ACCUMULATION_STEPS: 4
+EXTRA_OPTS:  --gradient_accumulation_steps 4 --dataset_percentage 20.0 --compile --use_wandb
+Logging to logs/debug_n0_Meta-Llama-3-8B_deepspeed_np8z1c1dc1E0b1seq512g4a1pALL.log
+[2025-06-17 04:10:13,289] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:13,362] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:14,886] [INFO] [logging.py:107:log_dist] [Rank -1] [TorchCheckpointEngine] Initialized with serialization = False
+W0617 04:10:15.376000 366937 site-packages/torch/distributed/run.py:766] 
+W0617 04:10:15.376000 366937 site-packages/torch/distributed/run.py:766] *****************************************
+W0617 04:10:15.376000 366937 site-packages/torch/distributed/run.py:766] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0617 04:10:15.376000 366937 site-packages/torch/distributed/run.py:766] *****************************************
+[W617 04:10:15.089270411 socket.cpp:200] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W617 04:10:15.089298011 socket.cpp:755] [c10d] The client socket cannot be initialized to connect to [fdff:ffff:af73::7355:0]:3435 (errno: 97 - Address family not supported by protocol).
+Namespace(model_name='meta-llama/Meta-Llama-3-8B', batch_size=1, num_epochs=5, seq_length=512, learning_rate=1e-06, max_grad_norm=1.0, gradient_accumulation_steps=4, activation_checkpointing=False, eval=False, dataset_name='wikitext', dataset_percentage=20.0, num_layers=0, attn_impl='sdpa', compile=True, passes=None, backend='inductor', offload_opt_states=False, profile=False, deterministic=False, profile_dir=None, bench_step=100, warmup_step=15, zero_stage=1, log_interval=10, save_weights=False, load_weights=False, use_wandb=True, wandb_project='ds-verify-loss', wandb_run_name=None, wandb_tags=[])
+Namespace(model_name='meta-llama/Meta-Llama-3-8B', batch_size=1, num_epochs=5, seq_length=512, learning_rate=1e-06, max_grad_norm=1.0, gradient_accumulation_steps=4, activation_checkpointing=False, eval=False, dataset_name='wikitext', dataset_percentage=20.0, num_layers=0, attn_impl='sdpa', compile=True, passes=None, backend='inductor', offload_opt_states=False, profile=False, deterministic=False, profile_dir=None, bench_step=100, warmup_step=15, zero_stage=1, log_interval=10, save_weights=False, load_weights=False, use_wandb=True, wandb_project='ds-verify-loss', wandb_run_name=None, wandb_tags=[])
+Namespace(model_name='meta-llama/Meta-Llama-3-8B', batch_size=1, num_epochs=5, seq_length=512, learning_rate=1e-06, max_grad_norm=1.0, gradient_accumulation_steps=4, activation_checkpointing=False, eval=False, dataset_name='wikitext', dataset_percentage=20.0, num_layers=0, attn_impl='sdpa', compile=True, passes=None, backend='inductor', offload_opt_states=False, profile=False, deterministic=False, profile_dir=None, bench_step=100, warmup_step=15, zero_stage=1, log_interval=10, save_weights=False, load_weights=False, use_wandb=True, wandb_project='ds-verify-loss', wandb_run_name=None, wandb_tags=[])
+Namespace(model_name='meta-llama/Meta-Llama-3-8B', batch_size=1, num_epochs=5, seq_length=512, learning_rate=1e-06, max_grad_norm=1.0, gradient_accumulation_steps=4, activation_checkpointing=False, eval=False, dataset_name='wikitext', dataset_percentage=20.0, num_layers=0, attn_impl='sdpa', compile=True, passes=None, backend='inductor', offload_opt_states=False, profile=False, deterministic=False, profile_dir=None, bench_step=100, warmup_step=15, zero_stage=1, log_interval=10, save_weights=False, load_weights=False, use_wandb=True, wandb_project='ds-verify-loss', wandb_run_name=None, wandb_tags=[])
+Namespace(model_name='meta-llama/Meta-Llama-3-8B', batch_size=1, num_epochs=5, seq_length=512, learning_rate=1e-06, max_grad_norm=1.0, gradient_accumulation_steps=4, activation_checkpointing=False, eval=False, dataset_name='wikitext', dataset_percentage=20.0, num_layers=0, attn_impl='sdpa', compile=True, passes=None, backend='inductor', offload_opt_states=False, profile=False, deterministic=False, profile_dir=None, bench_step=100, warmup_step=15, zero_stage=1, log_interval=10, save_weights=False, load_weights=False, use_wandb=True, wandb_project='ds-verify-loss', wandb_run_name=None, wandb_tags=[])Namespace(model_name='meta-llama/Meta-Llama-3-8B', batch_size=1, num_epochs=5, seq_length=512, learning_rate=1e-06, max_grad_norm=1.0, gradient_accumulation_steps=4, activation_checkpointing=False, eval=False, dataset_name='wikitext', dataset_percentage=20.0, num_layers=0, attn_impl='sdpa', compile=True, passes=None, backend='inductor', offload_opt_states=False, profile=False, deterministic=False, profile_dir=None, bench_step=100, warmup_step=15, zero_stage=1, log_interval=10, save_weights=False, load_weights=False, use_wandb=True, wandb_project='ds-verify-loss', wandb_run_name=None, wandb_tags=[])
+
+Namespace(model_name='meta-llama/Meta-Llama-3-8B', batch_size=1, num_epochs=5, seq_length=512, learning_rate=1e-06, max_grad_norm=1.0, gradient_accumulation_steps=4, activation_checkpointing=False, eval=False, dataset_name='wikitext', dataset_percentage=20.0, num_layers=0, attn_impl='sdpa', compile=True, passes=None, backend='inductor', offload_opt_states=False, profile=False, deterministic=False, profile_dir=None, bench_step=100, warmup_step=15, zero_stage=1, log_interval=10, save_weights=False, load_weights=False, use_wandb=True, wandb_project='ds-verify-loss', wandb_run_name=None, wandb_tags=[])
+Namespace(model_name='meta-llama/Meta-Llama-3-8B', batch_size=1, num_epochs=5, seq_length=512, learning_rate=1e-06, max_grad_norm=1.0, gradient_accumulation_steps=4, activation_checkpointing=False, eval=False, dataset_name='wikitext', dataset_percentage=20.0, num_layers=0, attn_impl='sdpa', compile=True, passes=None, backend='inductor', offload_opt_states=False, profile=False, deterministic=False, profile_dir=None, bench_step=100, warmup_step=15, zero_stage=1, log_interval=10, save_weights=False, load_weights=False, use_wandb=True, wandb_project='ds-verify-loss', wandb_run_name=None, wandb_tags=[])
+[2025-06-17 04:10:20,405] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:20,929] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:21,281] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:21,385] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:21,663] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:21,678] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:21,680] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:21,693] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:21,750] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:21,754] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:21,797] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:21,808] [INFO] [logging.py:107:log_dist] [Rank -1] [TorchCheckpointEngine] Initialized with serialization = False
+[2025-06-17 04:10:21,900] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:21,940] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:21,986] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:22,000] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:22,086] [INFO] [real_accelerator.py:254:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2025-06-17 04:10:22,360] [INFO] [comm.py:675:init_distributed] cdb=None
+[2025-06-17 04:10:22,360] [INFO] [comm.py:706:init_distributed] Initializing TorchBackend in DeepSpeed with backend nccl
+[W617 04:10:22.071950033 socket.cpp:200] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W617 04:10:22.072009930 socket.cpp:755] [c10d] The client socket cannot be initialized to connect to [fdff:ffff:9a71:0:2c59:f8df:9e5f:0]:2326 (errno: 97 - Address family not supported by protocol).
+Running on device: cuda:0 is_deepspeed: True
+Loading model and tokenizer...
+[2025-06-17 04:10:22,651] [INFO] [logging.py:107:log_dist] [Rank -1] [TorchCheckpointEngine] Initialized with serialization = False
+[2025-06-17 04:10:22,658] [INFO] [logging.py:107:log_dist] [Rank -1] [TorchCheckpointEngine] Initialized with serialization = False
+[2025-06-17 04:10:22,822] [INFO] [logging.py:107:log_dist] [Rank -1] [TorchCheckpointEngine] Initialized with serialization = False
+[2025-06-17 04:10:22,895] [INFO] [logging.py:107:log_dist] [Rank -1] [TorchCheckpointEngine] Initialized with serialization = False
+[2025-06-17 04:10:23,036] [INFO] [logging.py:107:log_dist] [Rank -1] [TorchCheckpointEngine] Initialized with serialization = False
+[2025-06-17 04:10:23,057] [INFO] [logging.py:107:log_dist] [Rank -1] [TorchCheckpointEngine] Initialized with serialization = False
+[2025-06-17 04:10:23,059] [INFO] [logging.py:107:log_dist] [Rank -1] [TorchCheckpointEngine] Initialized with serialization = False
+[2025-06-17 04:10:23,298] [INFO] [comm.py:675:init_distributed] cdb=None
+[W617 04:10:23.010250704 socket.cpp:200] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W617 04:10:23.010303501 socket.cpp:755] [c10d] The client socket cannot be initialized to connect to [fdff:ffff:f072:0:2c99:db82:7d62:0]:49940 (errno: 97 - Address family not supported by protocol).
+[2025-06-17 04:10:23,397] [INFO] [comm.py:675:init_distributed] cdb=None
+[W617 04:10:23.108177869 socket.cpp:200] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W617 04:10:23.108221596 socket.cpp:755] [c10d] The client socket cannot be initialized to connect to [fdff:ffff:de72:0:2c09:2ec:a464:0]:64921 (errno: 97 - Address family not supported by protocol).
+[2025-06-17 04:10:23,537] [INFO] [comm.py:675:init_distributed] cdb=None
+[W617 04:10:23.249295907 socket.cpp:200] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W617 04:10:23.249327841 socket.cpp:755] [c10d] The client socket cannot be initialized to connect to [fdff:ffff:8071:0:2ca9:934a:8758:0]:33000 (errno: 97 - Address family not supported by protocol).
+[2025-06-17 04:10:23,585] [INFO] [comm.py:675:init_distributed] cdb=None
+[W617 04:10:23.296555890 socket.cpp:200] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W617 04:10:23.296598166 socket.cpp:755] [c10d] The client socket cannot be initialized to connect to [fdff:ffff:1778:0:2c99:a08e:6458:0]:46256 (errno: 97 - Address family not supported by protocol).
+[2025-06-17 04:10:23,625] [INFO] [comm.py:675:init_distributed] cdb=None
+[W617 04:10:23.336076301 socket.cpp:200] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W617 04:10:23.336106405 socket.cpp:755] [c10d] The client socket cannot be initialized to connect to [fdff:ffff:97c:0:2c09:414e:5364:0]:23336 (errno: 97 - Address family not supported by protocol).
+[2025-06-17 04:10:23,693] [INFO] [comm.py:675:init_distributed] cdb=None
+[W617 04:10:23.404009873 socket.cpp:200] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W617 04:10:23.404051406 socket.cpp:755] [c10d] The client socket cannot be initialized to connect to [fdff:ffff:e27d:0:2ce9:a8c5:2c5e:0]:53721 (errno: 97 - Address family not supported by protocol).
+[2025-06-17 04:10:23,707] [INFO] [comm.py:675:init_distributed] cdb=None
+[W617 04:10:23.419215658 socket.cpp:200] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W617 04:10:23.419249249 socket.cpp:755] [c10d] The client socket cannot be initialized to connect to [fdff:ffff:d474:0:2c49:36a:2757:0]:32079 (errno: 97 - Address family not supported by protocol).
+Running on device: cuda:1 is_deepspeed: True
+Running on device: cuda:6 is_deepspeed: True
+Running on device: cuda:4 is_deepspeed: True
+Running on device: cuda:3 is_deepspeed: True
+Running on device: cuda:2 is_deepspeed: True
+Running on device: cuda:5 is_deepspeed: True
+Running on device: cuda:7 is_deepspeed: True
+Loading dataset: wikitext (20.0% of data)...
+Dataset loaded: 360270 examples using column 'text'
+Tokenizing dataset...
+Map:   0%|          | 0/360270 [00:00<?, ? examples/s]Map:   0%|          | 1000/360270 [00:00<00:57, 6264.22 examples/s]Map:   1%|          | 2000/360270 [00:00<00:58, 6133.08 examples/s]Map:   1%|          | 3000/360270 [00:00<00:58, 6123.66 examples/s]Map:   1%|          | 4000/360270 [00:00<00:57, 6202.19 examples/s]Map:   1%|▏         | 5000/360270 [00:00<00:56, 6314.75 examples/s]Map:   2%|▏         | 6000/360270 [00:01<01:02, 5705.88 examples/s]Map:   2%|▏         | 7000/360270 [00:01<01:02, 5652.27 examples/s]Map:   2%|▏         | 8000/360270 [00:01<01:01, 5759.35 examples/s]Map:   2%|▏         | 9000/360270 [00:01<01:01, 5742.59 examples/s]Map:   3%|▎         | 10000/360270 [00:01<01:02, 5635.73 examples/s]Map:   3%|▎         | 11000/360270 [00:01<01:00, 5781.13 examples/s]Map:   3%|▎         | 12000/360270 [00:02<01:06, 5233.09 examples/s]Map:   4%|▎         | 13000/360270 [00:02<01:05, 5262.55 examples/s]Map:   4%|▍         | 14000/360270 [00:02<01:05, 5259.67 examples/s]Map:   4%|▍         | 15000/360270 [00:02<01:06, 5197.66 examples/s]Map:   4%|▍         | 16000/360270 [00:02<01:06, 5183.14 examples/s]Map:   5%|▍         | 17000/360270 [00:03<01:07, 5112.32 examples/s]Map:   5%|▍         | 18000/360270 [00:03<01:06, 5167.07 examples/s]Map:   5%|▌         | 19000/360270 [00:03<01:05, 5234.99 examples/s]Map:   6%|▌         | 20000/360270 [00:03<01:03, 5370.96 examples/s]Map:   6%|▌         | 21000/360270 [00:03<01:06, 5109.67 examples/s]Map:   6%|▌         | 22000/360270 [00:04<01:10, 4826.37 examples/s]Map:   6%|▋         | 23000/360270 [00:04<01:08, 4917.67 examples/s]Map:   7%|▋         | 24000/360270 [00:04<01:22, 4099.50 examples/s]Map:   7%|▋         | 25000/360270 [00:04<01:19, 4207.37 examples/s]Map:   7%|▋         | 26000/360270 [00:05<01:19, 4192.74 examples/s]Map:   7%|▋         | 27000/360270 [00:05<01:19, 4193.28 examples/s]Map:   8%|▊         | 28000/360270 [00:05<01:17, 4275.45 examples/s]Map:   8%|▊         | 29000/360270 [00:05<01:14, 4423.31 examples/s]Map:   8%|▊         | 30000/360270 [00:06<02:00, 2738.55 examples/s]Map:   9%|▊         | 31000/360270 [00:06<01:48, 3041.73 examples/s]Map:   9%|▉         | 32000/360270 [00:06<01:37, 3363.20 examples/s]Map:   9%|▉         | 33000/360270 [00:07<01:30, 3632.94 examples/s]Map:   9%|▉         | 34000/360270 [00:07<01:24, 3872.19 examples/s]Map:  10%|▉         | 35000/360270 [00:07<01:17, 4207.03 examples/s]Map:  10%|▉         | 36000/360270 [00:07<01:14, 4335.96 examples/s]Map:  10%|█         | 37000/360270 [00:07<01:13, 4410.10 examples/s]Map:  11%|█         | 38000/360270 [00:08<01:11, 4495.32 examples/s]Map:  11%|█         | 39000/360270 [00:08<01:09, 4605.35 examples/s]Map:  11%|█         | 40000/360270 [00:08<01:10, 4541.38 examples/s]Map:  11%|█▏        | 41000/360270 [00:08<01:09, 4581.76 examples/s]Map:  12%|█▏        | 42000/360270 [00:09<01:12, 4361.26 examples/s]Map:  12%|█▏        | 43000/360270 [00:09<01:13, 4294.17 examples/s]Map:  12%|█▏        | 44000/360270 [00:09<01:11, 4401.36 examples/s]Map:  12%|█▏        | 45000/360270 [00:09<01:12, 4318.85 examples/s]Map:  13%|█▎        | 46000/360270 [00:10<01:13, 4273.98 examples/s]Map:  13%|█▎        | 47000/360270 [00:10<01:27, 3583.80 examples/s]Map:  13%|█▎        | 48000/360270 [00:10<01:23, 3752.79 examples/s]Map:  14%|█▎        | 49000/360270 [00:10<01:18, 3945.98 examples/s]Map:  14%|█▍        | 50000/360270 [00:11<01:17, 3991.66 examples/s]Map:  14%|█▍        | 51000/360270 [00:11<01:15, 4110.57 examples/s]Map:  14%|█▍        | 52000/360270 [00:11<01:12, 4262.60 examples/s]Map:  15%|█▍        | 53000/360270 [00:11<01:10, 4357.08 examples/s]Map:  15%|█▍        | 54000/360270 [00:12<01:12, 4224.59 examples/s]Map:  15%|█▌        | 55000/360270 [00:12<01:13, 4168.91 examples/s]Map:  16%|█▌        | 56000/360270 [00:12<01:13, 4139.07 examples/s]Map:  16%|█▌        | 57000/360270 [00:12<01:15, 4030.10 examples/s]Map:  16%|█▌        | 58000/360270 [00:13<01:15, 3986.49 examples/s]Map:  16%|█▋        | 59000/360270 [00:13<01:12, 4157.50 examples/s]Map:  17%|█▋        | 60000/360270 [00:13<01:12, 4128.56 examples/s]Map:  17%|█▋        | 61000/360270 [00:13<01:14, 4040.28 examples/s]Map:  17%|█▋        | 62000/360270 [00:13<01:10, 4210.57 examples/s]Map:  17%|█▋        | 63000/360270 [00:14<01:12, 4101.73 examples/s]Map:  18%|█▊        | 64000/360270 [00:14<01:11, 4149.09 examples/s]Map:  18%|█▊        | 65000/360270 [00:14<01:09, 4250.12 examples/s]Map:  18%|█▊        | 66000/360270 [00:15<01:52, 2625.33 examples/s]Map:  19%|█▊        | 67000/360270 [00:15<01:34, 3109.91 examples/s]Map:  19%|█▉        | 68000/360270 [00:15<01:27, 3338.12 examples/s]Map:  19%|█▉        | 69000/360270 [00:16<01:22, 3527.78 examples/s]Map:  19%|█▉        | 70000/360270 [00:16<01:19, 3638.10 examples/s]Map:  20%|█▉        | 71000/360270 [00:16<01:17, 3754.01 examples/s]Map:  20%|█▉        | 72000/360270 [00:16<01:15, 3800.12 examples/s]Map:  20%|██        | 73000/360270 [00:17<01:12, 3972.87 examples/s]Map:  21%|██        | 74000/360270 [00:17<01:11, 4002.90 examples/s]Map:  21%|██        | 75000/360270 [00:17<01:12, 3914.40 examples/s]Map:  21%|██        | 76000/360270 [00:17<01:12, 3934.74 examples/s]Map:  21%|██▏       | 77000/360270 [00:18<01:09, 4095.17 examples/s]Map:  22%|██▏       | 78000/360270 [00:18<01:08, 4116.72 examples/s]Map:  22%|██▏       | 79000/360270 [00:18<01:07, 4147.80 examples/s]Map:  22%|██▏       | 80000/360270 [00:18<01:06, 4228.93 examples/s]Map:  22%|██▏       | 81000/360270 [00:18<01:06, 4179.01 examples/s]Map:  23%|██▎       | 82000/360270 [00:19<01:06, 4191.05 examples/s]Map:  23%|██▎       | 83000/360270 [00:19<01:04, 4268.78 examples/s]Map:  23%|██▎       | 84000/360270 [00:19<01:05, 4190.59 examples/s]Map:  24%|██▎       | 85000/360270 [00:19<01:05, 4192.64 examples/s]Map:  24%|██▍       | 86000/360270 [00:20<01:05, 4198.11 examples/s]Map:  24%|██▍       | 87000/360270 [00:20<01:09, 3958.85 examples/s]Map:  24%|██▍       | 88000/360270 [00:20<01:08, 3989.52 examples/s]Map:  25%|██▍       | 89000/360270 [00:20<01:05, 4121.81 examples/s]Map:  25%|██▍       | 90000/360270 [00:21<01:03, 4257.04 examples/s]Map:  25%|██▌       | 91000/360270 [00:21<01:02, 4284.59 examples/s]Map:  26%|██▌       | 92000/360270 [00:21<01:00, 4447.13 examples/s]Map:  26%|██▌       | 93000/360270 [00:21<01:00, 4410.93 examples/s]Map:  26%|██▌       | 94000/360270 [00:22<01:23, 3193.25 examples/s]Map:  26%|██▋       | 95000/360270 [00:22<01:15, 3530.36 examples/s]Map:  27%|██▋       | 96000/360270 [00:22<01:13, 3612.55 examples/s]Map:  27%|██▋       | 97000/360270 [00:23<01:06, 3940.84 examples/s]Map:  27%|██▋       | 98000/360270 [00:23<01:01, 4271.29 examples/s]Map:  27%|██▋       | 99000/360270 [00:23<00:59, 4423.41 examples/s]Map:  28%|██▊       | 100000/360270 [00:23<00:58, 4459.24 examples/s]Map:  28%|██▊       | 101000/360270 [00:23<00:56, 4605.03 examples/s]Map:  28%|██▊       | 102000/360270 [00:24<01:36, 2687.03 examples/s]Map:  29%|██▊       | 103000/360270 [00:24<01:24, 3029.05 examples/s]Map:  29%|██▉       | 104000/360270 [00:25<01:17, 3316.84 examples/s]Map:  29%|██▉       | 105000/360270 [00:25<01:11, 3573.17 examples/s]Map:  29%|██▉       | 106000/360270 [00:25<01:05, 3864.32 examples/s]Map:  30%|██▉       | 107000/360270 [00:25<01:01, 4117.56 examples/s]Map:  30%|██▉       | 108000/360270 [00:25<01:01, 4122.73 examples/s]Map:  30%|███       | 109000/360270 [00:26<01:01, 4116.45 examples/s]Map:  31%|███       | 110000/360270 [00:26<01:00, 4159.93 examples/s]Map:  31%|███       | 111000/360270 [00:26<01:00, 4150.14 examples/s]Map:  31%|███       | 112000/360270 [00:26<01:02, 3966.15 examples/s]Map:  31%|███▏      | 113000/360270 [00:27<00:59, 4152.60 examples/s]Map:  32%|███▏      | 114000/360270 [00:27<00:58, 4216.21 examples/s]Map:  32%|███▏      | 115000/360270 [00:27<00:56, 4342.78 examples/s]Map:  32%|███▏      | 116000/360270 [00:27<00:55, 4385.32 examples/s]Map:  32%|███▏      | 117000/360270 [00:28<00:56, 4274.78 examples/s]Map:  33%|███▎      | 118000/360270 [00:28<00:57, 4195.96 examples/s]Map:  33%|███▎      | 119000/360270 [00:28<00:56, 4286.80 examples/s]Map:  33%|███▎      | 120000/360270 [00:28<00:57, 4162.71 examples/s]Map:  34%|███▎      | 121000/360270 [00:28<00:55, 4311.43 examples/s]Map:  34%|███▍      | 122000/360270 [00:29<00:53, 4431.12 examples/s]Map:  34%|███▍      | 123000/360270 [00:29<00:55, 4308.99 examples/s]Map:  34%|███▍      | 124000/360270 [00:29<00:55, 4293.67 examples/s]Map:  35%|███▍      | 125000/360270 [00:29<00:56, 4130.72 examples/s]Map:  35%|███▍      | 126000/360270 [00:30<00:57, 4077.93 examples/s]Map:  35%|███▌      | 127000/360270 [00:30<00:58, 3971.69 examples/s]Map:  36%|███▌      | 128000/360270 [00:30<00:59, 3884.19 examples/s]Map:  36%|███▌      | 129000/360270 [00:30<00:59, 3907.51 examples/s]Map:  36%|███▌      | 130000/360270 [00:31<00:58, 3964.45 examples/s]Map:  36%|███▋      | 131000/360270 [00:31<00:57, 3981.52 examples/s]Map:  37%|███▋      | 132000/360270 [00:31<00:56, 4027.21 examples/s]Map:  37%|███▋      | 133000/360270 [00:31<00:55, 4068.88 examples/s]Map:  37%|███▋      | 134000/360270 [00:32<00:55, 4063.47 examples/s]Map:  37%|███▋      | 135000/360270 [00:32<00:55, 4033.34 examples/s]Map:  38%|███▊      | 136000/360270 [00:32<00:55, 4035.00 examples/s]Map:  38%|███▊      | 137000/360270 [00:32<00:53, 4186.20 examples/s]Map:  38%|███▊      | 138000/360270 [00:33<01:22, 2695.57 examples/s]Map:  39%|███▊      | 139000/360270 [00:33<01:14, 2957.45 examples/s]Map:  39%|███▉      | 140000/360270 [00:34<01:08, 3216.15 examples/s]Map:  39%|███▉      | 141000/360270 [00:34<01:03, 3448.58 examples/s]Map:  39%|███▉      | 142000/360270 [00:34<00:59, 3654.70 examples/s]Map:  40%|███▉      | 143000/360270 [00:34<00:58, 3745.55 examples/s]Map:  40%|███▉      | 144000/360270 [00:35<00:56, 3861.34 examples/s]Map:  40%|████      | 145000/360270 [00:35<00:55, 3859.60 examples/s]Map:  41%|████      | 146000/360270 [00:35<00:55, 3882.86 examples/s]Map:  41%|████      | 147000/360270 [00:35<00:54, 3899.53 examples/s]Map:  41%|████      | 148000/360270 [00:36<00:53, 3934.76 examples/s]Map:  41%|████▏     | 149000/360270 [00:36<00:54, 3894.52 examples/s]Map:  42%|████▏     | 150000/360270 [00:36<00:53, 3895.58 examples/s]Map:  42%|████▏     | 151000/360270 [00:36<00:53, 3892.02 examples/s]Map:  42%|████▏     | 152000/360270 [00:37<00:50, 4087.77 examples/s]Map:  42%|████▏     | 153000/360270 [00:37<00:50, 4084.89 examples/s]Map:  43%|████▎     | 154000/360270 [00:37<00:51, 4008.33 examples/s]Map:  43%|████▎     | 155000/360270 [00:37<00:50, 4093.47 examples/s]Map:  43%|████▎     | 156000/360270 [00:38<00:49, 4099.50 examples/s]Map:  44%|████▎     | 157000/360270 [00:38<00:48, 4150.88 examples/s]Map:  44%|████▍     | 158000/360270 [00:38<00:49, 4119.22 examples/s]Map:  44%|████▍     | 159000/360270 [00:38<00:50, 3953.89 examples/s]Map:  44%|████▍     | 160000/360270 [00:39<00:51, 3894.70 examples/s]Map:  45%|████▍     | 161000/360270 [00:39<00:49, 4038.81 examples/s]Map:  45%|████▍     | 162000/360270 [00:39<00:49, 4042.44 examples/s]Map:  45%|████▌     | 163000/360270 [00:39<00:48, 4099.33 examples/s]Map:  46%|████▌     | 164000/360270 [00:40<00:46, 4193.54 examples/s]Map:  46%|████▌     | 165000/360270 [00:40<00:48, 4043.94 examples/s]Map:  46%|████▌     | 166000/360270 [00:40<00:49, 3885.45 examples/s]Map:  46%|████▋     | 167000/360270 [00:40<00:48, 3961.94 examples/s]Map:  47%|████▋     | 168000/360270 [00:41<00:48, 3992.49 examples/s]Map:  47%|████▋     | 169000/360270 [00:41<00:48, 3935.71 examples/s]Map:  47%|████▋     | 170000/360270 [00:41<00:47, 3982.84 examples/s]Map:  47%|████▋     | 171000/360270 [00:41<00:48, 3923.05 examples/s]Map:  48%|████▊     | 172000/360270 [00:42<00:48, 3900.38 examples/s]Map:  48%|████▊     | 173000/360270 [00:42<00:46, 4056.16 examples/s]Map:  48%|████▊     | 174000/360270 [00:42<01:07, 2757.22 examples/s]Map:  49%|████▊     | 175000/360270 [00:43<01:00, 3040.45 examples/s]Map:  49%|████▉     | 176000/360270 [00:43<00:54, 3355.81 examples/s]Map:  49%|████▉     | 177000/360270 [00:43<00:52, 3518.96 examples/s]Map:  49%|████▉     | 178000/360270 [00:43<00:49, 3687.66 examples/s]Map:  50%|████▉     | 179000/360270 [00:44<00:45, 3981.90 examples/s]Map:  50%|████▉     | 180000/360270 [00:44<00:43, 4099.75 examples/s]Map:  50%|█████     | 181000/360270 [00:44<00:43, 4158.09 examples/s]Map:  51%|█████     | 182000/360270 [00:44<00:41, 4322.84 examples/s]Map:  51%|█████     | 183000/360270 [00:45<00:41, 4221.72 examples/s]Map:  51%|█████     | 184000/360270 [00:45<00:42, 4186.75 examples/s]Map:  51%|█████▏    | 185000/360270 [00:45<00:41, 4179.34 examples/s]Map:  52%|█████▏    | 186000/360270 [00:45<00:41, 4230.83 examples/s]Map:  52%|█████▏    | 187000/360270 [00:46<00:42, 4078.22 examples/s]Map:  52%|█████▏    | 188000/360270 [00:47<01:24, 2049.23 examples/s]Map:  52%|█████▏    | 189000/360270 [00:47<01:10, 2429.40 examples/s]Map:  53%|█████▎    | 190000/360270 [00:47<00:59, 2849.91 examples/s]Map:  53%|█████▎    | 191000/360270 [00:47<00:54, 3111.26 examples/s]Map:  53%|█████▎    | 192000/360270 [00:48<00:51, 3292.74 examples/s]Map:  54%|█████▎    | 193000/360270 [00:48<00:49, 3402.70 examples/s]Map:  54%|█████▍    | 194000/360270 [00:48<00:46, 3560.12 examples/s]Map:  54%|█████▍    | 195000/360270 [00:48<00:45, 3664.16 examples/s]Map:  54%|█████▍    | 196000/360270 [00:49<00:42, 3843.71 examples/s]Map:  55%|█████▍    | 197000/360270 [00:49<00:41, 3910.08 examples/s]Map:  55%|█████▍    | 198000/360270 [00:49<00:40, 3982.69 examples/s]Map:  55%|█████▌    | 199000/360270 [00:49<00:39, 4131.86 examples/s]Map:  56%|█████▌    | 200000/360270 [00:49<00:38, 4212.22 examples/s]Map:  56%|█████▌    | 201000/360270 [00:50<00:40, 3922.94 examples/s]Map:  56%|█████▌    | 202000/360270 [00:50<00:41, 3835.82 examples/s]Map:  56%|█████▋    | 203000/360270 [00:50<00:40, 3893.58 examples/s]Map:  57%|█████▋    | 204000/360270 [00:51<00:40, 3861.51 examples/s]Map:  57%|█████▋    | 205000/360270 [00:51<00:40, 3878.60 examples/s]Map:  57%|█████▋    | 206000/360270 [00:51<00:37, 4106.01 examples/s]Map:  57%|█████▋    | 207000/360270 [00:51<00:36, 4161.57 examples/s]Map:  58%|█████▊    | 208000/360270 [00:52<00:38, 3961.45 examples/s]Map:  58%|█████▊    | 209000/360270 [00:52<00:38, 3899.63 examples/s]Map:  58%|█████▊    | 210000/360270 [00:53<00:58, 2547.44 examples/s]Map:  59%|█████▊    | 211000/360270 [00:53<00:52, 2859.92 examples/s]Map:  59%|█████▉    | 212000/360270 [00:53<00:47, 3129.95 examples/s]Map:  59%|█████▉    | 213000/360270 [00:53<00:45, 3271.27 examples/s]Map:  59%|█████▉    | 214000/360270 [00:54<00:43, 3391.07 examples/s]Map:  60%|█████▉    | 215000/360270 [00:54<00:40, 3605.13 examples/s]Map:  60%|█████▉    | 216000/360270 [00:54<00:38, 3766.58 examples/s]Map:  60%|██████    | 217000/360270 [00:54<00:37, 3801.30 examples/s]Map:  61%|██████    | 218000/360270 [00:55<00:37, 3795.39 examples/s]Map:  61%|██████    | 219000/360270 [00:55<00:38, 3704.33 examples/s]Map:  61%|██████    | 220000/360270 [00:55<00:36, 3818.36 examples/s]Map:  61%|██████▏   | 221000/360270 [00:55<00:36, 3855.45 examples/s]Map:  62%|██████▏   | 222000/360270 [00:56<00:37, 3726.09 examples/s]Map:  62%|██████▏   | 223000/360270 [00:56<00:36, 3729.47 examples/s]Map:  62%|██████▏   | 224000/360270 [00:56<00:35, 3872.68 examples/s]Map:  62%|██████▏   | 225000/360270 [00:56<00:34, 3902.95 examples/s]Map:  63%|██████▎   | 226000/360270 [00:57<00:34, 3927.67 examples/s]Map:  63%|██████▎   | 227000/360270 [00:57<00:33, 3925.16 examples/s]Map:  63%|██████▎   | 228000/360270 [00:57<00:31, 4169.60 examples/s]Map:  64%|██████▎   | 229000/360270 [00:57<00:30, 4355.95 examples/s]Map:  64%|██████▍   | 230000/360270 [00:58<00:31, 4176.87 examples/s]Map:  64%|██████▍   | 231000/360270 [00:58<00:30, 4202.25 examples/s]Map:  64%|██████▍   | 232000/360270 [00:58<00:31, 4116.22 examples/s]Map:  65%|██████▍   | 233000/360270 [00:58<00:31, 3981.52 examples/s]Map:  65%|██████▍   | 234000/360270 [00:59<00:32, 3876.70 examples/s]Map:  65%|██████▌   | 235000/360270 [00:59<00:33, 3788.49 examples/s]Map:  66%|██████▌   | 236000/360270 [00:59<00:33, 3762.85 examples/s]Map:  66%|██████▌   | 237000/360270 [00:59<00:31, 3868.03 examples/s]Map:  66%|██████▌   | 238000/360270 [01:00<00:31, 3835.94 examples/s]Map:  66%|██████▋   | 239000/360270 [01:00<00:30, 4040.02 examples/s]Map:  67%|██████▋   | 240000/360270 [01:00<00:30, 3935.64 examples/s]Map:  67%|██████▋   | 241000/360270 [01:00<00:30, 3937.27 examples/s]Map:  67%|██████▋   | 242000/360270 [01:01<00:30, 3926.18 examples/s]Map:  67%|██████▋   | 243000/360270 [01:01<00:30, 3897.57 examples/s]Map:  68%|██████▊   | 244000/360270 [01:01<00:29, 3895.97 examples/s]Map:  68%|██████▊   | 245000/360270 [01:01<00:29, 3851.19 examples/s]Map:  68%|██████▊   | 246000/360270 [01:02<00:41, 2781.54 examples/s]Map:  69%|██████▊   | 247000/360270 [01:02<00:38, 2928.51 examples/s]Map:  69%|██████▉   | 248000/360270 [01:03<00:35, 3152.57 examples/s]Map:  69%|██████▉   | 249000/360270 [01:03<00:34, 3253.12 examples/s]Map:  69%|██████▉   | 250000/360270 [01:03<00:32, 3359.41 examples/s]Map:  70%|██████▉   | 251000/360270 [01:03<00:31, 3492.35 examples/s]Map:  70%|██████▉   | 252000/360270 [01:04<00:30, 3547.96 examples/s]Map:  70%|███████   | 253000/360270 [01:04<00:30, 3553.21 examples/s]Map:  71%|███████   | 254000/360270 [01:04<00:29, 3660.37 examples/s]Map:  71%|███████   | 255000/360270 [01:04<00:28, 3673.42 examples/s]Map:  71%|███████   | 256000/360270 [01:05<00:28, 3609.26 examples/s]Map:  71%|███████▏  | 257000/360270 [01:05<00:28, 3632.99 examples/s]Map:  72%|███████▏  | 258000/360270 [01:05<00:27, 3724.49 examples/s]Map:  72%|███████▏  | 259000/360270 [01:06<00:27, 3650.29 examples/s]Map:  72%|███████▏  | 260000/360270 [01:06<00:26, 3752.15 examples/s]Map:  72%|███████▏  | 261000/360270 [01:06<00:26, 3760.50 examples/s]Map:  73%|███████▎  | 262000/360270 [01:06<00:26, 3732.84 examples/s]Map:  73%|███████▎  | 263000/360270 [01:07<00:25, 3879.67 examples/s]Map:  73%|███████▎  | 264000/360270 [01:07<00:24, 3876.80 examples/s]Map:  74%|███████▎  | 265000/360270 [01:07<00:24, 3825.29 examples/s]Map:  74%|███████▍  | 266000/360270 [01:07<00:24, 3848.36 examples/s]Map:  74%|███████▍  | 267000/360270 [01:08<00:24, 3813.20 examples/s]Map:  74%|███████▍  | 268000/360270 [01:08<00:24, 3826.18 examples/s]Map:  75%|███████▍  | 269000/360270 [01:08<00:23, 3806.24 examples/s]Map:  75%|███████▍  | 270000/360270 [01:08<00:23, 3774.48 examples/s]Map:  75%|███████▌  | 271000/360270 [01:09<00:23, 3750.49 examples/s]Map:  75%|███████▌  | 272000/360270 [01:09<00:22, 3884.53 examples/s]Map:  76%|███████▌  | 273000/360270 [01:09<00:22, 3800.46 examples/s]Map:  76%|███████▌  | 274000/360270 [01:09<00:23, 3734.03 examples/s]Map:  76%|███████▋  | 275000/360270 [01:10<00:22, 3765.88 examples/s]Map:  77%|███████▋  | 276000/360270 [01:10<00:23, 3526.26 examples/s]Map:  77%|███████▋  | 277000/360270 [01:10<00:24, 3455.24 examples/s]Map:  77%|███████▋  | 278000/360270 [01:11<00:23, 3514.26 examples/s]Map:  77%|███████▋  | 279000/360270 [01:11<00:22, 3663.07 examples/s]Map:  78%|███████▊  | 280000/360270 [01:11<00:22, 3639.16 examples/s]Map:  78%|███████▊  | 281000/360270 [01:11<00:21, 3700.91 examples/s]Map:  78%|███████▊  | 282000/360270 [01:12<00:31, 2450.78 examples/s]Map:  79%|███████▊  | 283000/360270 [01:12<00:28, 2753.22 examples/s]Map:  79%|███████▉  | 284000/360270 [01:13<00:25, 2944.76 examples/s]Map:  79%|███████▉  | 285000/360270 [01:13<00:23, 3193.10 examples/s]Map:  79%|███████▉  | 286000/360270 [01:13<00:22, 3232.66 examples/s]Map:  80%|███████▉  | 287000/360270 [01:14<00:21, 3377.80 examples/s]Map:  80%|███████▉  | 288000/360270 [01:14<00:20, 3452.89 examples/s]Map:  80%|████████  | 289000/360270 [01:14<00:20, 3426.40 examples/s]Map:  80%|████████  | 290000/360270 [01:14<00:19, 3634.21 examples/s]Map:  81%|████████  | 291000/360270 [01:15<00:19, 3640.48 examples/s]Map:  81%|████████  | 292000/360270 [01:15<00:19, 3579.93 examples/s]Map:  81%|████████▏ | 293000/360270 [01:15<00:18, 3690.46 examples/s]Map:  82%|████████▏ | 294000/360270 [01:15<00:18, 3610.20 examples/s]Map:  82%|████████▏ | 295000/360270 [01:16<00:18, 3607.25 examples/s]Map:  82%|████████▏ | 296000/360270 [01:16<00:17, 3765.65 examples/s]Map:  82%|████████▏ | 297000/360270 [01:16<00:17, 3685.25 examples/s]Map:  83%|████████▎ | 298000/360270 [01:17<00:16, 3726.04 examples/s]Map:  83%|████████▎ | 299000/360270 [01:17<00:16, 3799.98 examples/s]Map:  83%|████████▎ | 300000/360270 [01:17<00:15, 3819.65 examples/s]Map:  84%|████████▎ | 301000/360270 [01:17<00:14, 4014.77 examples/s]Map:  84%|████████▍ | 302000/360270 [01:17<00:14, 4030.87 examples/s]Map:  84%|████████▍ | 303000/360270 [01:18<00:14, 3927.38 examples/s]Map:  84%|████████▍ | 304000/360270 [01:18<00:14, 3919.33 examples/s]Map:  85%|████████▍ | 305000/360270 [01:18<00:14, 3846.01 examples/s]Map:  85%|████████▍ | 306000/360270 [01:19<00:14, 3705.69 examples/s]Map:  85%|████████▌ | 307000/360270 [01:19<00:14, 3643.51 examples/s]Map:  85%|████████▌ | 308000/360270 [01:19<00:13, 3830.63 examples/s]Map:  86%|████████▌ | 309000/360270 [01:19<00:13, 3805.33 examples/s]Map:  86%|████████▌ | 310000/360270 [01:20<00:12, 3886.60 examples/s]Map:  86%|████████▋ | 311000/360270 [01:20<00:12, 3865.86 examples/s]Map:  87%|████████▋ | 312000/360270 [01:20<00:12, 3725.41 examples/s]Map:  87%|████████▋ | 313000/360270 [01:20<00:12, 3711.16 examples/s]Map:  87%|████████▋ | 314000/360270 [01:21<00:12, 3744.34 examples/s]Map:  87%|████████▋ | 315000/360270 [01:21<00:12, 3723.45 examples/s]Map:  88%|████████▊ | 316000/360270 [01:21<00:11, 3853.01 examples/s]Map:  88%|████████▊ | 317000/360270 [01:21<00:11, 3898.84 examples/s]Map:  88%|████████▊ | 318000/360270 [01:22<00:15, 2705.67 examples/s]Map:  89%|████████▊ | 319000/360270 [01:22<00:14, 2929.56 examples/s]Map:  89%|████████▉ | 320000/360270 [01:23<00:13, 3071.93 examples/s]Map:  89%|████████▉ | 321000/360270 [01:23<00:11, 3278.52 examples/s]Map:  89%|████████▉ | 322000/360270 [01:23<00:11, 3416.40 examples/s]Map:  90%|████████▉ | 323000/360270 [01:23<00:10, 3480.59 examples/s]Map:  90%|████████▉ | 324000/360270 [01:24<00:10, 3586.77 examples/s]Map:  90%|█████████ | 325000/360270 [01:24<00:09, 3643.74 examples/s]Map:  90%|█████████ | 326000/360270 [01:24<00:09, 3738.65 examples/s]Map:  91%|█████████ | 327000/360270 [01:24<00:08, 3790.20 examples/s][2025-06-17 04:15:14,057] [INFO] [config.py:655:__init__] Config mesh_device None world_size = 8
+Map:  91%|█████████ | 328000/360270 [01:25<00:08, 3920.55 examples/s]Map:  91%|█████████▏| 329000/360270 [01:25<00:08, 3902.61 examples/s][2025-06-17 04:15:14,704] [INFO] [config.py:655:__init__] Config mesh_device None world_size = 8
+Map:  92%|█████████▏| 330000/360270 [01:25<00:07, 3938.79 examples/s]Map:  92%|█████████▏| 331000/360270 [01:25<00:07, 3928.41 examples/s]Map:  92%|█████████▏| 332000/360270 [01:26<00:07, 3978.81 examples/s]Map:  92%|█████████▏| 333000/360270 [01:26<00:06, 4072.51 examples/s]Map:  93%|█████████▎| 334000/360270 [01:26<00:06, 3975.36 examples/s]Map:  93%|█████████▎| 335000/360270 [01:26<00:06, 3951.45 examples/s]Map:  93%|█████████▎| 336000/360270 [01:27<00:06, 3866.65 examples/s]Map:  94%|█████████▎| 337000/360270 [01:27<00:05, 3916.42 examples/s]Map:  94%|█████████▍| 338000/360270 [01:27<00:05, 3950.32 examples/s]Map:  94%|█████████▍| 339000/360270 [01:27<00:05, 3993.51 examples/s]Map:  94%|█████████▍| 340000/360270 [01:28<00:05, 3859.85 examples/s]Map:  95%|█████████▍| 341000/360270 [01:28<00:04, 4006.15 examples/s]Map:  95%|█████████▍| 342000/360270 [01:28<00:04, 3977.18 examples/s]Map:  95%|█████████▌| 343000/360270 [01:28<00:04, 3947.33 examples/s]Map:  95%|█████████▌| 344000/360270 [01:29<00:04, 3955.66 examples/s]Map:  96%|█████████▌| 345000/360270 [01:29<00:03, 3867.25 examples/s]Map:  96%|█████████▌| 346000/360270 [01:29<00:03, 3896.31 examples/s]Map:  96%|█████████▋| 347000/360270 [01:30<00:03, 3981.77 examples/s]Map:  97%|█████████▋| 348000/360270 [01:30<00:03, 3969.03 examples/s]Map:  97%|█████████▋| 349000/360270 [01:30<00:02, 3788.72 examples/s]Map:  97%|█████████▋| 350000/360270 [01:30<00:02, 3853.12 examples/s]Map:  97%|█████████▋| 351000/360270 [01:31<00:02, 3846.03 examples/s]Map:  98%|█████████▊| 352000/360270 [01:31<00:01, 4199.15 examples/s][2025-06-17 04:15:20,304] [INFO] [config.py:655:__init__] Config mesh_device None world_size = 8
+Map:  98%|█████████▊| 353000/360270 [01:31<00:01, 4537.71 examples/s][2025-06-17 04:15:20,785] [INFO] [config.py:655:__init__] Config mesh_device None world_size = 8
+Map:  98%|█████████▊| 354000/360270 [01:32<00:02, 2520.26 examples/s]Map:  99%|█████████▊| 355000/360270 [01:32<00:01, 2883.06 examples/s]Map:  99%|█████████▉| 356000/360270 [01:32<00:01, 3226.33 examples/s]Map:  99%|█████████▉| 357000/360270 [01:32<00:00, 3471.21 examples/s]Map:  99%|█████████▉| 358000/360270 [01:33<00:00, 3718.66 examples/s]Map: 100%|█████████▉| 359000/360270 [01:33<00:00, 3950.05 examples/s]Map: 100%|█████████▉| 360000/360270 [01:33<00:00, 4017.52 examples/s]Map: 100%|██████████| 360270/360270 [01:33<00:00, 3845.32 examples/s]
+Tokenization complete. Dataset ready with 360270 examples.
+[2025-06-17 04:15:22,731] [INFO] [logging.py:107:log_dist] [Rank 0] DeepSpeed info: version=0.17.1+e440506b, git-hash=e440506b, git-branch=master
+[2025-06-17 04:15:22,732] [INFO] [config.py:655:__init__] Config mesh_device None world_size = 8
+[2025-06-17 04:15:23,669] [INFO] [config.py:655:__init__] Config mesh_device None world_size = 8
+[2025-06-17 04:15:25,343] [INFO] [config.py:655:__init__] Config mesh_device None world_size = 8
+[2025-06-17 04:15:25,923] [INFO] [config.py:655:__init__] Config mesh_device None world_size = 8
+[2025-06-17 04:15:32,713] [INFO] [engine.py:1325:_configure_distributed_model] ********** distributed groups summary **********
+	 self.dp_world_size=8
+	 self.mp_world_size=1
+	 self.seq_dp_world_size=8
+	 self.sequence_parallel_size=1
+***********************************************
+NCCL version 2.26.2+cuda12.2
+[2025-06-17 04:15:36,728] [INFO] [logging.py:107:log_dist] [Rank 0] DeepSpeed Flops Profiler Enabled: False
+[2025-06-17 04:15:36,729] [INFO] [logging.py:107:log_dist] [Rank 0] Using client Optimizer as basic optimizer
+[2025-06-17 04:15:36,729] [INFO] [logging.py:107:log_dist] [Rank 0] Removing param_group that has no 'params' in the basic Optimizer
+[2025-06-17 04:15:36,735] [INFO] [logging.py:107:log_dist] [Rank 0] DeepSpeed Basic Optimizer = AdamW
+[2025-06-17 04:15:36,735] [INFO] [utils.py:59:is_zero_supported_optimizer] Checking ZeRO support for optimizer=AdamW type=<class 'torch.optim.adamw.AdamW'>
+[2025-06-17 04:15:36,735] [INFO] [logging.py:107:log_dist] [Rank 0] Creating torch.bfloat16 ZeRO stage 1 optimizer
+[2025-06-17 04:15:36,735] [INFO] [stage_1_and_2.py:151:__init__] Reduce bucket size 500000000
+[2025-06-17 04:15:36,735] [INFO] [stage_1_and_2.py:152:__init__] Allgather bucket size 500000000
+[2025-06-17 04:15:36,735] [INFO] [stage_1_and_2.py:153:__init__] CPU Offload: False
+[2025-06-17 04:15:36,735] [INFO] [stage_1_and_2.py:154:__init__] Round robin gradient partitioning: False
+Model prepared: <class 'deepspeed.runtime.engine.DeepSpeedEngine'> optimizer: <class 'accelerate.utils.deepspeed.DeepSpeedOptimizerWrapper'>
+[2025-06-17 04:15:57,813] [INFO] [engine.py:3953:compile] Compiling deepcompile=True backend=inductor
+Model prepared: <class 'deepspeed.runtime.engine.DeepSpeedEngine'> optimizer: <class 'accelerate.utils.deepspeed.DeepSpeedOptimizerWrapper'>
+[2025-06-17 04:15:57,862] [INFO] [engine.py:3953:compile] Compiling deepcompile=True backend=inductor
+Model prepared: <class 'deepspeed.runtime.engine.DeepSpeedEngine'> optimizer: <class 'accelerate.utils.deepspeed.DeepSpeedOptimizerWrapper'>
+[2025-06-17 04:15:58,207] [INFO] [engine.py:3953:compile] Compiling deepcompile=True backend=inductor
+Model prepared: <class 'deepspeed.runtime.engine.DeepSpeedEngine'> optimizer: <class 'accelerate.utils.deepspeed.DeepSpeedOptimizerWrapper'>
+[2025-06-17 04:15:58,511] [INFO] [engine.py:3953:compile] Compiling deepcompile=True backend=inductor
+Model prepared: <class 'deepspeed.runtime.engine.DeepSpeedEngine'> optimizer: <class 'accelerate.utils.deepspeed.DeepSpeedOptimizerWrapper'>
+[2025-06-17 04:15:58,755] [INFO] [engine.py:3953:compile] Compiling deepcompile=True backend=inductor
+Using /home/mtanaka/.cache/torch_extensions/py311_cu126 as PyTorch extensions root...
+Detected CUDA files, patching ldflags
+Emitting ninja build file /home/mtanaka/.cache/torch_extensions/py311_cu126/dc/build.ninja...
+/opt/conda/lib/python3.11/site-packages/torch/utils/cpp_extension.py:2356: UserWarning: TORCH_CUDA_ARCH_LIST is not set, all archs for visible cards are included for compilation. 
+If this is not desired, please set os.environ['TORCH_CUDA_ARCH_LIST'].
+  warnings.warn(
+Building extension module dc...
+Allowing ninja to set a default number of workers... (overridable by setting the environment variable MAX_JOBS=N)
+Using /home/mtanaka/.cache/torch_extensions/py311_cu126 as PyTorch extensions root...
+ninja: no work to do.
+Loading extension module dc...
+Time to load dc op: 2.410320997238159 seconds
+Loading extension module dc...
+Time to load dc op: 2.5575640201568604 seconds
+Using /home/mtanaka/.cache/torch_extensions/py311_cu126 as PyTorch extensions root...
+Detected CUDA files, patching ldflags
+Emitting ninja build file /home/mtanaka/.cache/torch_extensions/py311_cu126/dc/build.ninja...
+/opt/conda/lib/python3.11/site-packages/torch/utils/cpp_extension.py:2356: UserWarning: TORCH_CUDA_ARCH_LIST is not set, all archs for visible cards are included for compilation. 
+If this is not desired, please set os.environ['TORCH_CUDA_ARCH_LIST'].
+  warnings.warn(
+Building extension module dc...
+Allowing ninja to set a default number of workers... (overridable by setting the environment variable MAX_JOBS=N)
+ninja: no work to do.
+Loading extension module dc...
+Time to load dc op: 2.3860983848571777 seconds
+Using /home/mtanaka/.cache/torch_extensions/py311_cu126 as PyTorch extensions root...
+Detected CUDA files, patching ldflags
+Emitting ninja build file /home/mtanaka/.cache/torch_extensions/py311_cu126/dc/build.ninja...
+/opt/conda/lib/python3.11/site-packages/torch/utils/cpp_extension.py:2356: UserWarning: TORCH_CUDA_ARCH_LIST is not set, all archs for visible cards are included for compilation. 
+If this is not desired, please set os.environ['TORCH_CUDA_ARCH_LIST'].
+  warnings.warn(
+Building extension module dc...
+Allowing ninja to set a default number of workers... (overridable by setting the environment variable MAX_JOBS=N)
+ninja: no work to do.
+Loading extension module dc...
+Time to load dc op: 2.336195468902588 seconds
+Using /home/mtanaka/.cache/torch_extensions/py311_cu126 as PyTorch extensions root...
+Detected CUDA files, patching ldflags
+Emitting ninja build file /home/mtanaka/.cache/torch_extensions/py311_cu126/dc/build.ninja...
+/opt/conda/lib/python3.11/site-packages/torch/utils/cpp_extension.py:2356: UserWarning: TORCH_CUDA_ARCH_LIST is not set, all archs for visible cards are included for compilation. 
+If this is not desired, please set os.environ['TORCH_CUDA_ARCH_LIST'].
+  warnings.warn(
+Building extension module dc...
+Allowing ninja to set a default number of workers... (overridable by setting the environment variable MAX_JOBS=N)
+ninja: no work to do.
+Loading extension module dc...
+Time to load dc op: 2.26804518699646 seconds
+Model prepared: <class 'deepspeed.runtime.engine.DeepSpeedEngine'> optimizer: <class 'accelerate.utils.deepspeed.DeepSpeedOptimizerWrapper'>
+[2025-06-17 04:16:09,407] [INFO] [engine.py:3953:compile] Compiling deepcompile=True backend=inductor
+Model prepared: <class 'deepspeed.runtime.engine.DeepSpeedEngine'> optimizer: <class 'accelerate.utils.deepspeed.DeepSpeedOptimizerWrapper'>
+[2025-06-17 04:16:10,113] [INFO] [engine.py:3953:compile] Compiling deepcompile=True backend=inductor
+[2025-06-17 04:16:11,353] [INFO] [utils.py:781:see_memory_usage] Before initializing optimizer states
+[2025-06-17 04:16:11,354] [INFO] [utils.py:782:see_memory_usage] MA 18.7 GB         Max_MA 20.57 GB         CA 20.57 GB         Max_CA 21 GB 
+[2025-06-17 04:16:11,354] [INFO] [utils.py:789:see_memory_usage] CPU Virtual Memory:  used = 81.76 GB, percent = 4.5%
+[2025-06-17 04:16:11,485] [INFO] [utils.py:781:see_memory_usage] After initializing optimizer states
+[2025-06-17 04:16:11,485] [INFO] [utils.py:782:see_memory_usage] MA 18.7 GB         Max_MA 22.44 GB         CA 24.31 GB         Max_CA 24 GB 
+[2025-06-17 04:16:11,485] [INFO] [utils.py:789:see_memory_usage] CPU Virtual Memory:  used = 81.78 GB, percent = 4.5%
+[2025-06-17 04:16:11,485] [INFO] [stage_1_and_2.py:573:__init__] optimizer state initialized
+[2025-06-17 04:16:11,599] [INFO] [utils.py:781:see_memory_usage] After initializing ZeRO optimizer
+[2025-06-17 04:16:11,600] [INFO] [utils.py:782:see_memory_usage] MA 18.7 GB         Max_MA 18.7 GB         CA 24.31 GB         Max_CA 24 GB 
+[2025-06-17 04:16:11,600] [INFO] [utils.py:789:see_memory_usage] CPU Virtual Memory:  used = 81.76 GB, percent = 4.5%
+[2025-06-17 04:16:11,601] [INFO] [logging.py:107:log_dist] [Rank 0] DeepSpeed Final Optimizer = DeepSpeedZeroOptimizer
+[2025-06-17 04:16:11,601] [INFO] [logging.py:107:log_dist] [Rank 0] DeepSpeed using configured LR scheduler = None
+[2025-06-17 04:16:11,601] [INFO] [logging.py:107:log_dist] [Rank 0] DeepSpeed LR Scheduler = None
+[2025-06-17 04:16:11,601] [INFO] [logging.py:107:log_dist] [Rank 0] step=0, skipped=0, lr=[1e-06], mom=[(0.9, 0.999)]
+[2025-06-17 04:16:11,602] [INFO] [logging.py:107:log_dist] [Rank 0] [TorchCheckpointEngine] Initialized with serialization = True
+[2025-06-17 04:16:11,602] [INFO] [config.py:921:print] DeepSpeedEngine configuration:
+[2025-06-17 04:16:11,602] [INFO] [config.py:925:print]   activation_checkpointing_config  {
+    "partition_activations": false, 
+    "contiguous_memory_optimization": false, 
+    "cpu_checkpointing": false, 
+    "number_checkpoints": null, 
+    "synchronize_checkpoint_boundary": false, 
+    "profile": false
+}
+[2025-06-17 04:16:11,602] [INFO] [config.py:925:print]   aio_config ................... {'block_size': 1048576, 'queue_depth': 8, 'intra_op_parallelism': 1, 'single_submit': False, 'overlap_events': True, 'use_gds': False}
+[2025-06-17 04:16:11,602] [INFO] [config.py:925:print]   amp_enabled .................. False
+[2025-06-17 04:16:11,602] [INFO] [config.py:925:print]   amp_params ................... False
+[2025-06-17 04:16:11,602] [INFO] [config.py:925:print]   autotuning_config ............ {
+    "enabled": false, 
+    "start_step": null, 
+    "end_step": null, 
+    "metric_path": null, 
+    "arg_mappings": null, 
+    "metric": "throughput", 
+    "model_info": null, 
+    "results_dir": "autotuning_results", 
+    "exps_dir": "autotuning_exps", 
+    "overwrite": true, 
+    "fast": true, 
+    "start_profile_step": 3, 
+    "end_profile_step": 5, 
+    "tuner_type": "gridsearch", 
+    "tuner_early_stopping": 5, 
+    "tuner_num_trials": 50, 
+    "model_info_path": null, 
+    "mp_size": 1, 
+    "max_train_batch_size": null, 
+    "min_train_batch_size": 1, 
+    "max_train_micro_batch_size_per_gpu": 1.024000e+03, 
+    "min_train_micro_batch_size_per_gpu": 1, 
+    "num_tuning_micro_batch_sizes": 3
+}
+[2025-06-17 04:16:11,602] [INFO] [config.py:925:print]   bfloat16_config .............. enabled=True immediate_grad_update=False check_grad_overflow=False
+[2025-06-17 04:16:11,602] [INFO] [config.py:925:print]   checkpoint_config ............ {'tag_validation': 'WARN', 'checkpoint_serialization': True, 'writer': None}
+[2025-06-17 04:16:11,602] [INFO] [config.py:925:print]   checkpoint_parallel_write_pipeline  False
+[2025-06-17 04:16:11,602] [INFO] [config.py:925:print]   checkpoint_tag_validation_enabled  True
+[2025-06-17 04:16:11,602] [INFO] [config.py:925:print]   checkpoint_tag_validation_fail  False
+[2025-06-17 04:16:11,602] [INFO] [config.py:925:print]   comms_config ................. <deepspeed.comm.config.DeepSpeedCommsConfig object at 0x719ae075b250>
+[2025-06-17 04:16:11,602] [INFO] [config.py:925:print]   communication_data_type ...... None
+[2025-06-17 04:16:11,602] [INFO] [config.py:925:print]   compile_config ............... deepcompile=True free_activation=False offload_activation=False offload_opt_states=False double_buffer=True symmetric_memory=False debug_log=False offload_parameters=False sync_before_reduce=False sync_after_reduce=False sync_before_allgather=False sync_after_allgather=False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   compression_config ........... {'weight_quantization': {'shared_parameters': {'enabled': False, 'quantizer_kernel': False, 'schedule_offset': 0, 'quantize_groups': 1, 'quantize_verbose': False, 'quantization_type': 'symmetric', 'quantize_weight_in_forward': False, 'rounding': 'nearest', 'fp16_mixed_quantize': False, 'quantize_change_ratio': 0.001}, 'different_groups': {}}, 'activation_quantization': {'shared_parameters': {'enabled': False, 'quantization_type': 'symmetric', 'range_calibration': 'dynamic', 'schedule_offset': 1000}, 'different_groups': {}}, 'sparse_pruning': {'shared_parameters': {'enabled': False, 'method': 'l1', 'schedule_offset': 1000}, 'different_groups': {}}, 'row_pruning': {'shared_parameters': {'enabled': False, 'method': 'l1', 'schedule_offset': 1000}, 'different_groups': {}}, 'head_pruning': {'shared_parameters': {'enabled': False, 'method': 'topk', 'schedule_offset': 1000}, 'different_groups': {}}, 'channel_pruning': {'shared_parameters': {'enabled': False, 'method': 'l1', 'schedule_offset': 1000}, 'different_groups': {}}, 'layer_reduction': {'enabled': False}}
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   curriculum_enabled_legacy .... False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   curriculum_params_legacy ..... False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   data_efficiency_config ....... {'enabled': False, 'seed': 1234, 'data_sampling': {'enabled': False, 'num_epochs': 1000, 'num_workers': 0, 'pin_memory': False, 'curriculum_learning': {'enabled': False}, 'dynamic_batching': {'enabled': False, 'lr_scaling_method': 'linear', 'min_batch_size': 1, 'max_batch_size': None, 'sequence_picking_order': 'dataloader', 'verbose': False}}, 'data_routing': {'enabled': False, 'random_ltd': {'enabled': False, 'layer_token_lr_schedule': {'enabled': False}}}}
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   data_efficiency_enabled ...... False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   dataloader_drop_last ......... False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   disable_allgather ............ False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   dump_state ................... False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   eigenvalue_enabled ........... False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   eigenvalue_gas_boundary_resolution  1
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   eigenvalue_layer_name ........ bert.encoder.layer
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   eigenvalue_layer_num ......... 0
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   eigenvalue_max_iter .......... 100
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   eigenvalue_stability ......... 1e-06
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   eigenvalue_tol ............... 0.01
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   eigenvalue_verbose ........... False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   elasticity_enabled ........... False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   float16_config ............... enabled=False auto_cast=False loss_scale=0.0 initial_scale_power=16 loss_scale_window=1000 hysteresis=2 consecutive_hysteresis=False min_loss_scale=1 fp16_master_weights_and_grads=False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   flops_profiler_config ........ {
+    "enabled": false, 
+    "recompute_fwd_factor": 0.0, 
+    "profile_step": 1, 
+    "module_depth": -1, 
+    "top_modules": 1, 
+    "detailed": true, 
+    "output_file": null
+}
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   global_rank .................. 0
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   grad_accum_dtype ............. None
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   gradient_accumulation_steps .. 4
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   gradient_clipping ............ 1.0
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   gradient_predivide_factor .... 1.0
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   graph_harvesting ............. False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   hybrid_engine ................ enabled=False max_out_tokens=512 inference_tp_size=1 release_inference_cache=False pin_parameters=True tp_gather_partition_size=8
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   load_universal_checkpoint .... False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   memory_breakdown ............. False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   mics_hierarchial_params_gather  False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   mics_shard_size .............. -1
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   monitor_config ............... tensorboard=TensorBoardConfig(enabled=False, output_path='', job_name='DeepSpeedJobName') comet=CometConfig(enabled=False, samples_log_interval=100, project=None, workspace=None, api_key=None, experiment_name=None, experiment_key=None, online=None, mode=None) wandb=WandbConfig(enabled=False, group=None, team=None, project='deepspeed') csv_monitor=CSVConfig(enabled=False, output_path='', job_name='DeepSpeedJobName')
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   nebula_config ................ {
+    "enabled": false, 
+    "persistent_storage_path": null, 
+    "persistent_time_interval": 100, 
+    "num_of_version_in_retention": 2, 
+    "enable_nebula_load": true, 
+    "load_path": null
+}
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   optimizer_legacy_fusion ...... False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   optimizer_name ............... None
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   optimizer_params ............. None
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   pipeline ..................... {'stages': 'auto', 'partition': 'best', 'seed_layers': False, 'activation_checkpoint_interval': 0, 'pipe_partitioned': True, 'grad_partitioned': True}
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   pld_enabled .................. False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   pld_params ................... False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   prescale_gradients ........... False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   scheduler_name ............... None
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   scheduler_params ............. None
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   seq_parallel_communication_data_type  torch.float32
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   sparse_attention ............. None
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   sparse_gradients_enabled ..... False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   steps_per_print .............. inf
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   tensor_parallel_config ....... dtype=torch.float16 autotp_size=0 tp_overlap_comm=False tensor_parallel=TPConfig(tp_size=1, tp_grain_size=1, mpu=None, tp_group=None) injection_policy_tuple=None keep_module_on_host=False replace_with_kernel_inject=False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   timers_config ................ enabled=True synchronized=True
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   train_batch_size ............. 32
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   train_micro_batch_size_per_gpu  1
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   use_data_before_expert_parallel_  False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   use_node_local_storage ....... False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   wall_clock_breakdown ......... False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   weight_quantization_config ... None
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   world_size ................... 8
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   zero_allow_untested_optimizer  True
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   zero_config .................. stage=1 contiguous_gradients=True reduce_scatter=True reduce_bucket_size=500000000 use_multi_rank_bucket_allreduce=True allgather_partitions=True allgather_bucket_size=500000000 overlap_comm=False load_from_fp32_weights=True elastic_checkpoint=False offload_param=None offload_optimizer=None sub_group_size=100000000 cpu_offload_param=None cpu_offload_use_pin_memory=None cpu_offload=None prefetch_bucket_size=50000000 param_persistence_threshold=100000 model_persistence_threshold=9223372036854775807 max_live_parameters=1000000000 max_reuse_distance=1000000000 gather_16bit_weights_on_model_save=False module_granularity_threshold=0 use_all_reduce_for_fetch_params=False stage3_gather_fp16_weights_on_model_save=False ignore_unused_parameters=True legacy_stage1=False round_robin_gradients=False zero_hpz_partition_size=1 zero_quantized_weights=False zero_quantized_nontrainable_weights=False zero_quantized_gradients=False zeropp_loco_param=None mics_shard_size=-1 mics_hierarchical_params_gather=False memory_efficient_linear=True pipeline_loading_checkpoint=False override_module_apply=True log_trace_cache_warnings=False
+[2025-06-17 04:16:11,603] [INFO] [config.py:925:print]   zero_enabled ................. True
+[2025-06-17 04:16:11,604] [INFO] [config.py:925:print]   zero_force_ds_cpu_optimizer .. True
+[2025-06-17 04:16:11,604] [INFO] [config.py:925:print]   zero_optimization_stage ...... 1
+[2025-06-17 04:16:11,604] [INFO] [config.py:911:print_user_config]   json = {
+    "bf16": {
+        "enabled": true
+    }, 
+    "zero_optimization": {
+        "stage": 1, 
+        "sub_group_size": 1.000000e+08
+    }, 
+    "compile": {
+        "deepcompile": true, 
+        "offload_activation": false, 
+        "offload_opt_states": false, 
+        "double_buffer": true, 
+        "symmetric_memory": false, 
+        "free_activation": false, 
+        "debug_log": false, 
+        "sync_before_reduce": false, 
+        "sync_after_reduce": false
+    }, 
+    "gradient_accumulation_steps": 4, 
+    "gradient_clipping": 1.0, 
+    "steps_per_print": inf, 
+    "train_batch_size": 32, 
+    "train_micro_batch_size_per_gpu": 1, 
+    "wall_clock_breakdown": false, 
+    "fp16": {
+        "enabled": false
+    }, 
+    "zero_allow_untested_optimizer": true
+}
+Model prepared: <class 'deepspeed.runtime.engine.DeepSpeedEngine'> optimizer: <class 'accelerate.utils.deepspeed.DeepSpeedOptimizerWrapper'>
+Using /home/mtanaka/.cache/torch_extensions/py311_cu126 as PyTorch extensions root...
+Detected CUDA files, patching ldflags
+Emitting ninja build file /home/mtanaka/.cache/torch_extensions/py311_cu126/dc/build.ninja...
+/opt/conda/lib/python3.11/site-packages/torch/utils/cpp_extension.py:2356: UserWarning: TORCH_CUDA_ARCH_LIST is not set, all archs for visible cards are included for compilation. 
+If this is not desired, please set os.environ['TORCH_CUDA_ARCH_LIST'].
+  warnings.warn(
+Building extension module dc...
+Allowing ninja to set a default number of workers... (overridable by setting the environment variable MAX_JOBS=N)
+ninja: no work to do.
+Loading extension module dc...
+Time to load dc op: 2.486069440841675 seconds
+wandb: Currently logged in as: mtanaka (orangewandb) to https://msaip.wandb.io. Use `wandb login --relogin` to force relogin
+Using /home/mtanaka/.cache/torch_extensions/py311_cu126 as PyTorch extensions root...
+Detected CUDA files, patching ldflags
+Emitting ninja build file /home/mtanaka/.cache/torch_extensions/py311_cu126/dc/build.ninja...
+/opt/conda/lib/python3.11/site-packages/torch/utils/cpp_extension.py:2356: UserWarning: TORCH_CUDA_ARCH_LIST is not set, all archs for visible cards are included for compilation. 
+If this is not desired, please set os.environ['TORCH_CUDA_ARCH_LIST'].
+  warnings.warn(
+Building extension module dc...
+Allowing ninja to set a default number of workers... (overridable by setting the environment variable MAX_JOBS=N)
+ninja: no work to do.
+Loading extension module dc...
+Time to load dc op: 2.3881728649139404 seconds
+wandb: Tracking run with wandb version 0.20.1
+wandb: Run data is saved locally in /home/mtanaka/work/dc/ds_verify_loss/wandb/run-20250617_041612-uumwdr9v
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run Meta-Llama-3-8B_np8ds1Binductorz1L0bs1seq512acc4ac0c1dc1pass_none_os0T20250617041611
+wandb: ⭐️ View project at https://msaip.wandb.io/orangewandb/ds-verify-loss
+wandb: 🚀 View run at https://msaip.wandb.io/orangewandb/ds-verify-loss/runs/uumwdr9v
+[2025-06-17 04:16:13,118] [INFO] [engine.py:3953:compile] Compiling deepcompile=True backend=inductor
+Using /home/mtanaka/.cache/torch_extensions/py311_cu126 as PyTorch extensions root...
+Detected CUDA files, patching ldflags
+Emitting ninja build file /home/mtanaka/.cache/torch_extensions/py311_cu126/dc/build.ninja...
+/opt/conda/lib/python3.11/site-packages/torch/utils/cpp_extension.py:2356: UserWarning: TORCH_CUDA_ARCH_LIST is not set, all archs for visible cards are included for compilation. 
+If this is not desired, please set os.environ['TORCH_CUDA_ARCH_LIST'].
+  warnings.warn(
+Building extension module dc...
+Allowing ninja to set a default number of workers... (overridable by setting the environment variable MAX_JOBS=N)
+ninja: no work to do.
+Loading extension module dc...
+Time to load dc op: 2.241558313369751 seconds
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+Launching compile passes: global_steps=0 passes=[<function add_z1_reduce at 0x719b0e414f40>]
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+Epoch 1, Step 40, Loss: 10.558805 sync: True time: 0.39777064323425293 alloc_mem: 32416033280 peak_mem: 53280690176
+Epoch 1, Step 80, Loss: 7.429075 sync: True time: 0.3975083827972412 alloc_mem: 32416033280 peak_mem: 53280690176
+Epoch 1, Step 120, Loss: 6.455489 sync: True time: 0.3963963985443115 alloc_mem: 32416033280 peak_mem: 53280690176
+Epoch 1, Step 160, Loss: 4.732489 sync: True time: 0.3988626003265381 alloc_mem: 32416033280 peak_mem: 53280690176
+Epoch 1, Step 200, Loss: 2.213609 sync: True time: 0.39933133125305176 alloc_mem: 32416033280 peak_mem: 53280690176
+Epoch 1, Step 240, Loss: 2.862580 sync: True time: 0.39840173721313477 alloc_mem: 32416033280 peak_mem: 53280690176
+Epoch 1, Step 280, Loss: 1.257941 sync: True time: 0.3977184295654297 alloc_mem: 32416033280 peak_mem: 53280690176
+Epoch 1, Step 320, Loss: 0.357352 sync: True time: 0.3976130485534668 alloc_mem: 32416033280 peak_mem: 53280690176
+Epoch 1, Step 360, Loss: 2.235132 sync: True time: 0.39677882194519043 alloc_mem: 32416033280 peak_mem: 53280690176
+Epoch 1, Step 400, Loss: 1.630608 sync: True time: 0.3981297016143799 alloc_mem: 32416033280 peak_mem: 53280690176
+meta-llama/Meta-Llama-3-8B ds=True np=8 batch_size=1 seq=512 zero_stage=1 acc=4 ac=False compile=True backend=inductor deepcompile=True passes=None compile_time=7.424898624420166 iteration time: 0.3979 alloc_mem: 32416033280 peak_mem: 53280690176
+wandb:                                                                                
+wandb: 
+wandb: Run history:
+wandb:      summary/average_iteration_time ▁
+wandb:            summary/compile_time_sum ▁
+wandb: summary/final_cuda_memory_allocated ▁
+wandb:      summary/final_cuda_memory_peak ▁
+wandb:                 summary/total_steps ▁
+wandb:        system/cuda_memory_allocated ▁▁▁▁▁▁▁▁▁▁
+wandb:             system/cuda_memory_peak ▁▁▁▁▁▁▁▁▁▁
+wandb:               timing/iteration_time ▄▄▁▇█▆▄▄▂▅
+wandb:                         train/epoch ▁▁▁▁▁▁▁▁▁▁
+wandb:                   train/global_step ▁▂▃▃▄▅▆▆▇█
+wandb:                 train/learning_rate ▁▁▁▁▁▁▁▁▁▁
+wandb:                          train/loss █▆▅▄▂▃▂▁▂▂
+wandb: 
+wandb: Run summary:
+wandb:      summary/average_iteration_time 0.39793
+wandb:            summary/compile_time_sum 7.4249
+wandb: summary/final_cuda_memory_allocated 32416033280
+wandb:      summary/final_cuda_memory_peak 53280690176
+wandb:                 summary/total_steps 400
+wandb:        system/cuda_memory_allocated 32416033280
+wandb:             system/cuda_memory_peak 53280690176
+wandb:               timing/iteration_time 0.3986
+wandb:                         train/epoch 1
+wandb:                   train/global_step 400
+wandb:                 train/learning_rate 0.0
+wandb:                          train/loss 1.63061
+wandb: 
+wandb: 🚀 View run Meta-Llama-3-8B_np8ds1Binductorz1L0bs1seq512acc4ac0c1dc1pass_none_os0T20250617041611 at: https://msaip.wandb.io/orangewandb/ds-verify-loss/runs/uumwdr9v
+wandb: ⭐️ View project at: https://msaip.wandb.io/orangewandb/ds-verify-loss
+wandb: Synced 8 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20250617_041612-uumwdr9v/logs
+[2025-06-17 04:17:34,255] [INFO] [stage_1_and_2.py:1012:print_rank_0] Removed grad acc hooks
+[rank0]:[W617 04:17:39.365349527 ProcessGroupNCCL.cpp:1476] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
