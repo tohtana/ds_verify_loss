@@ -165,13 +165,20 @@ def parse_condition_name(condition: str) -> Tuple[str, str]:
     
     return zero_stage, variant
 
-def create_loss_comparison_plot(results_data: Dict, output_path: str):
+def create_loss_comparison_plot(results_data: Dict, output_path: str, condition_order: List[str] = None):
     """Create loss curve comparison plot."""
     plt.figure(figsize=(12, 8))
     
-    colors = plt.cm.Set3(np.linspace(0, 1, len(results_data)))
+    # Use provided order or default to dictionary order
+    if condition_order is None:
+        condition_order = list(results_data.keys())
     
-    for i, (condition, data) in enumerate(results_data.items()):
+    colors = plt.cm.Set3(np.linspace(0, 1, len(condition_order)))
+    
+    for i, condition in enumerate(condition_order):
+        if condition not in results_data:
+            continue
+        data = results_data[condition]
         if data['losses'] and data['steps']:
             zero_stage, variant = parse_condition_name(condition)
             label = f"{zero_stage} ({variant})"
@@ -187,14 +194,21 @@ def create_loss_comparison_plot(results_data: Dict, output_path: str):
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
 
-def create_iteration_time_plot(results_data: Dict, output_path: str, warmup_steps: int = 15):
+def create_iteration_time_plot(results_data: Dict, output_path: str, warmup_steps: int = 15, condition_order: List[str] = None):
     """Create iteration time comparison bar plot with enhanced styling, excluding warmup steps."""
     conditions = []
     avg_times = []
     std_times = []
     warmup_excluded_counts = []
     
-    for condition, data in results_data.items():
+    # Use provided order or default to dictionary order
+    if condition_order is None:
+        condition_order = list(results_data.keys())
+    
+    for condition in condition_order:
+        if condition not in results_data:
+            continue
+        data = results_data[condition]
         if data['iteration_times']:
             zero_stage, variant = parse_condition_name(condition)
             label = f"{zero_stage}\n({variant})"
@@ -270,12 +284,19 @@ def create_iteration_time_plot(results_data: Dict, output_path: str, warmup_step
     plt.close()
     print(f"✓ Iteration time plot saved to: {output_path} (warmup steps: {warmup_steps} excluded)")
 
-def create_memory_usage_plot(results_data: Dict, output_path: str):
+def create_memory_usage_plot(results_data: Dict, output_path: str, condition_order: List[str] = None):
     """Create memory usage comparison plot."""
     conditions = []
     peak_memories = []
     
-    for condition, data in results_data.items():
+    # Use provided order or default to dictionary order
+    if condition_order is None:
+        condition_order = list(results_data.keys())
+    
+    for condition in condition_order:
+        if condition not in results_data:
+            continue
+        data = results_data[condition]
         if data['memory_stats']:
             zero_stage, variant = parse_condition_name(condition)
             label = f"{zero_stage}\n({variant})"
@@ -329,7 +350,11 @@ def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dic
         f.write("| Condition | Configuration | Status |\n")
         f.write("|-----------|---------------|--------|\n")
         
-        for condition, info in metadata.get('conditions', {}).items():
+        condition_order = metadata.get('condition_order', list(metadata.get('conditions', {}).keys()))
+        for condition in condition_order:
+            if condition not in metadata.get('conditions', {}):
+                continue
+            info = metadata['conditions'][condition]
             status = "✅ Success" if info.get('exit_code', 1) == 0 else "❌ Failed"
             zero_stage, variant = parse_condition_name(condition)
             f.write(f"| {condition} | {zero_stage} + {variant} | {status} |\n")
@@ -352,7 +377,11 @@ def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dic
         
         # Analyze loss data
         loss_analysis = {}
-        for condition, data in results_data.items():
+        condition_order = metadata.get('condition_order', list(results_data.keys()))
+        for condition in condition_order:
+            if condition not in results_data:
+                continue
+            data = results_data[condition]
             if data['losses']:
                 zero_stage, variant = parse_condition_name(condition)
                 final_loss = data['losses'][-1] if data['losses'] else None
@@ -379,7 +408,10 @@ def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dic
         
         # Analyze iteration times (excluding warmup steps)
         perf_analysis = {}
-        for condition, data in results_data.items():
+        for condition in condition_order:
+            if condition not in results_data:
+                continue
+            data = results_data[condition]
             if data['iteration_times']:
                 zero_stage, variant = parse_condition_name(condition)
                 times = np.array(data['iteration_times'])
@@ -422,7 +454,10 @@ def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dic
         f.write("| Condition | Loss Data Points | Timing Data Points | Memory Data Points |\n")
         f.write("|-----------|------------------|--------------------|-----------------|\n")
         
-        for condition, data in results_data.items():
+        for condition in condition_order:
+            if condition not in results_data:
+                continue
+            data = results_data[condition]
             zero_stage, variant = parse_condition_name(condition)
             loss_points = len(data['losses'])
             timing_points = len(data['iteration_times'])
@@ -449,15 +484,19 @@ def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dic
         
         f.write("\n## Appendix\n\n")
         f.write("### Wandb Run IDs\n\n")
-        for condition, info in metadata.get('conditions', {}).items():
+        for condition in condition_order:
+            if condition not in metadata.get('conditions', {}):
+                continue
+            info = metadata['conditions'][condition]
             wandb_run = info.get('wandb_run', 'unknown')
             if wandb_run != 'unknown':
                 f.write(f"- **{condition}:** {wandb_run}\n")
         
         f.write("\n### Log Files\n\n")
         f.write("Detailed logs for each condition are available in the results directory:\n\n")
-        for condition in metadata.get('conditions', {}).keys():
-            f.write(f"- `{condition}_detailed.log`\n")
+        for condition in condition_order:
+            if condition in metadata.get('conditions', {}):
+                f.write(f"- `{condition}_detailed.log`\n")
     
     print(f"Report generated: {report_path}")
 
@@ -490,9 +529,15 @@ def main():
     
     print(f"Analyzing results from: {args.results_dir}")
     
-    # Extract data for each condition
+    # Extract data for each condition in the specified order
     results_data = {}
-    for condition, info in metadata.get('conditions', {}).items():
+    condition_order = metadata.get('condition_order', list(metadata.get('conditions', {}).keys()))
+    
+    for condition in condition_order:
+        if condition not in metadata.get('conditions', {}):
+            continue
+            
+        info = metadata['conditions'][condition]
         print(f"Processing condition: {condition}")
         
         # Initialize metrics structure
@@ -543,9 +588,10 @@ def main():
     time_plot_path = os.path.join(plots_dir, 'iteration_time_comparison.png')
     memory_plot_path = os.path.join(plots_dir, 'memory_usage_comparison.png')
     
-    create_loss_comparison_plot(results_data, loss_plot_path)
-    create_iteration_time_plot(results_data, time_plot_path, args.warmup_steps)
-    create_memory_usage_plot(results_data, memory_plot_path)
+    # Pass condition order to plotting functions
+    create_loss_comparison_plot(results_data, loss_plot_path, condition_order)
+    create_iteration_time_plot(results_data, time_plot_path, args.warmup_steps, condition_order)
+    create_memory_usage_plot(results_data, memory_plot_path, condition_order)
     
     # Generate report
     print("Generating markdown report...")

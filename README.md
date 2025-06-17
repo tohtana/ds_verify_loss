@@ -7,7 +7,7 @@ The scripts in this repository run training using DeepSpeed with different setti
 ### 1. Run training
 
 ```bash
-./run_batch_enhanced.sh
+./run_batch.sh
 ```
 
 **What it does:**
