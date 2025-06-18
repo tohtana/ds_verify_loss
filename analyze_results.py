@@ -365,7 +365,11 @@ def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dic
             if condition not in metadata.get('conditions', {}):
                 continue
             info = metadata['conditions'][condition]
-            status = "✅ Success" if info.get('exit_code', 1) == 0 else "❌ Failed"
+            # Check both 'status' and 'exit_code' fields, convert to int
+            status_code = info.get('status', info.get('exit_code', 1))
+            if isinstance(status_code, str):
+                status_code = int(status_code) if status_code.isdigit() else 1
+            status = "✅ Success" if status_code == 0 else "❌ Failed"
             backend_stage, variant = parse_condition_name(condition)
             f.write(f"| {condition} | {backend_stage} + {variant} | {status} |\n")
         
