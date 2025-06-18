@@ -6,6 +6,8 @@ The scripts in this repository run training using DeepSpeed with different setti
 
 ### 1. Run training
 
+### 1.1. Run basic conditions
+
 ```bash
 ./run_batch.sh
 ```
@@ -14,6 +16,76 @@ The scripts in this repository run training using DeepSpeed with different setti
 - Runs training with different conditions (ZeRO-1/2/3 with and without DeepCompile)
 - Records loss values and iteration times
 
+### 1.2. Run specific condition sets
+
+Instead of running all conditions, you can define and run specific condition sets using the configuration-based approach:
+
+```bash
+# List available condition sets
+python generate_batch.py --list
+
+# Show what commands would be run (dry run)
+python generate_batch.py zero_vs_fsdp --show
+
+# Generate a reusable bash script
+python generate_batch.py zero_vs_fsdp --generate run_zero_vs_fsdp.sh
+
+# Generate and run immediately
+python generate_batch.py zero_vs_fsdp --run
+```
+
+**Usage modes:**
+
+- `--list`: Display all available condition sets with descriptions
+- `--show` (default): Preview the commands that would be executed without running them
+- `--generate <script_file>`: Create a standalone bash script for later execution
+- `--run`: Generate the batch script and execute it immediately
+
+**Generated scripts include:**
+- Timestamped results directory creation
+- Comprehensive experiment logging
+- Status tracking for each condition
+- WandB run ID extraction
+- Detailed log file management
+- Summary table with success/failure status
+
+**Pre-defined condition sets:**
+
+- `zero_stages`: Compare ZeRO-1, ZeRO-2, and ZeRO-3
+- `zero_vs_fsdp`: Compare ZeRO-3 with FSDP 
+- `fsdp_vs_ddp`: Compare FSDP with DDP
+- `compilation_comparison`: Compare with/without compilation
+- `minimal_test`: Quick test with ZeRO-3 baseline and compiled
+
+**Creating custom condition sets:**
+
+Edit `conditions.yaml` to define your own condition sets:
+
+```yaml
+my_custom_test:
+  description: "Custom comparison for my research"
+  conditions:
+    - name: "baseline"
+      backend: "deepspeed"
+      zero_stage: 3
+      compile: false
+    - name: "optimized" 
+      backend: "deepspeed"
+      zero_stage: 3
+      compile: true
+      passes: "INFERENCE"
+```
+
+Then run it:
+```bash
+python generate_batch.py my_custom_test
+```
+
+**Benefits:**
+- No need to copy/modify batch files
+- Easy to define targeted comparisons
+- Reusable condition sets
+- Clear documentation of what's being tested
 
 ### 2. Generate report
 Comprehensive analysis script that extracts metrics and generates visualizations.

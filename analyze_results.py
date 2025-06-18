@@ -148,22 +148,32 @@ def extract_wandb_data(wandb_run_path: str, condition: str = None, offline_mode:
     return metrics
 
 def parse_condition_name(condition: str) -> Tuple[str, str]:
-    """Parse condition name to extract zero stage and variant."""
+    """Parse condition name to extract backend/stage and variant."""
+    # Determine backend/stage
     if 'z1' in condition:
-        zero_stage = 'ZeRO-1'
+        backend_stage = 'ZeRO-1'
     elif 'z2' in condition:
-        zero_stage = 'ZeRO-2'
+        backend_stage = 'ZeRO-2'
     elif 'z3' in condition:
-        zero_stage = 'ZeRO-3'
+        backend_stage = 'ZeRO-3'
+    elif 'fsdp' in condition:
+        backend_stage = 'FSDP'
+    elif 'ddp' in condition:
+        backend_stage = 'DDP'
+    elif 'singlegpu' in condition:
+        backend_stage = 'SingleGPU'
     else:
-        zero_stage = 'Unknown'
+        backend_stage = 'Unknown'
     
-    if 'deepcompile' in condition:
+    # Determine variant
+    if 'deepcompile' in condition or 'compiled' in condition:
         variant = 'DeepCompile'
+    elif 'compile' in condition:
+        variant = 'Compiled'
     else:
         variant = 'Baseline'
     
-    return zero_stage, variant
+    return backend_stage, variant
 
 def create_loss_comparison_plot(results_data: Dict, output_path: str, condition_order: List[str] = None):
     """Create loss curve comparison plot."""
@@ -180,8 +190,8 @@ def create_loss_comparison_plot(results_data: Dict, output_path: str, condition_
             continue
         data = results_data[condition]
         if data['losses'] and data['steps']:
-            zero_stage, variant = parse_condition_name(condition)
-            label = f"{zero_stage} ({variant})"
+            backend_stage, variant = parse_condition_name(condition)
+            label = f"{backend_stage} ({variant})"
             plt.plot(data['steps'], data['losses'], 
                     label=label, color=colors[i], linewidth=2, alpha=0.8)
     
@@ -210,8 +220,8 @@ def create_iteration_time_plot(results_data: Dict, output_path: str, warmup_step
             continue
         data = results_data[condition]
         if data['iteration_times']:
-            zero_stage, variant = parse_condition_name(condition)
-            label = f"{zero_stage}\n({variant})"
+            backend_stage, variant = parse_condition_name(condition)
+            label = f"{backend_stage}\n({variant})"
             conditions.append(label)
             
             times = np.array(data['iteration_times'])
@@ -298,8 +308,8 @@ def create_memory_usage_plot(results_data: Dict, output_path: str, condition_ord
             continue
         data = results_data[condition]
         if data['memory_stats']:
-            zero_stage, variant = parse_condition_name(condition)
-            label = f"{zero_stage}\n({variant})"
+            backend_stage, variant = parse_condition_name(condition)
+            label = f"{backend_stage}\n({variant})"
             conditions.append(label)
             
             # Get max peak memory across all steps
@@ -356,8 +366,8 @@ def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dic
                 continue
             info = metadata['conditions'][condition]
             status = "✅ Success" if info.get('exit_code', 1) == 0 else "❌ Failed"
-            zero_stage, variant = parse_condition_name(condition)
-            f.write(f"| {condition} | {zero_stage} + {variant} | {status} |\n")
+            backend_stage, variant = parse_condition_name(condition)
+            f.write(f"| {condition} | {backend_stage} + {variant} | {status} |\n")
         
         f.write("\n### Model and Training Parameters\n\n")
         f.write("- **Model:** meta-llama/Meta-Llama-3-8B\n")
@@ -383,11 +393,11 @@ def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dic
                 continue
             data = results_data[condition]
             if data['losses']:
-                zero_stage, variant = parse_condition_name(condition)
+                backend_stage, variant = parse_condition_name(condition)
                 final_loss = data['losses'][-1] if data['losses'] else None
                 min_loss = min(data['losses']) if data['losses'] else None
                 loss_analysis[condition] = {
-                    'zero_stage': zero_stage,
+                    'backend_stage': backend_stage,
                     'variant': variant,
                     'final_loss': final_loss,
                     'min_loss': min_loss
@@ -397,7 +407,7 @@ def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dic
             f.write("**Key Findings:**\n\n")
             for condition, analysis in loss_analysis.items():
                 if analysis['final_loss'] is not None:
-                    f.write(f"- **{analysis['zero_stage']} ({analysis['variant']}):** ")
+                    f.write(f"- **{analysis['backend_stage']} ({analysis['variant']}):** ")
                     f.write(f"Final loss: {analysis['final_loss']:.6f}, ")
                     f.write(f"Best loss: {analysis['min_loss']:.6f}\n")
             f.write("\n")
@@ -413,7 +423,7 @@ def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dic
                 continue
             data = results_data[condition]
             if data['iteration_times']:
-                zero_stage, variant = parse_condition_name(condition)
+                backend_stage, variant = parse_condition_name(condition)
                 times = np.array(data['iteration_times'])
                 
                 # Exclude warmup steps
@@ -427,7 +437,7 @@ def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dic
                     p99 = np.percentile(times_after_warmup, 99)
                     filtered_times = times_after_warmup[times_after_warmup <= p99]
                     perf_analysis[condition] = {
-                        'zero_stage': zero_stage,
+                        'backend_stage': backend_stage,
                         'variant': variant,
                         'avg_time': np.mean(filtered_times),
                         'std_time': np.std(filtered_times),
@@ -441,7 +451,7 @@ def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dic
             f.write("|---------------|--------------------|---------|-----------|\n")
             for condition, analysis in perf_analysis.items():
                 steps_used = analysis['total_steps'] - analysis['warmup_excluded']
-                f.write(f"| {analysis['zero_stage']} ({analysis['variant']}) | ")
+                f.write(f"| {analysis['backend_stage']} ({analysis['variant']}) | ")
                 f.write(f"{analysis['avg_time']:.3f}s | {analysis['std_time']:.3f}s | {steps_used}/{analysis['total_steps']} |\n")
             f.write("\n")
         
@@ -458,11 +468,11 @@ def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dic
             if condition not in results_data:
                 continue
             data = results_data[condition]
-            zero_stage, variant = parse_condition_name(condition)
+            backend_stage, variant = parse_condition_name(condition)
             loss_points = len(data['losses'])
             timing_points = len(data['iteration_times'])
             memory_points = len(data['memory_stats'])
-            f.write(f"| {zero_stage} ({variant}) | {loss_points} | {timing_points} | {memory_points} |\n")
+            f.write(f"| {backend_stage} ({variant}) | {loss_points} | {timing_points} | {memory_points} |\n")
         
         f.write("\n")
         
@@ -473,13 +483,13 @@ def generate_markdown_report(results_dir: str, results_data: Dict, metadata: Dic
         if perf_analysis:
             # Find fastest configuration
             fastest = min(perf_analysis.items(), key=lambda x: x[1]['avg_time'])
-            f.write(f"- **Fastest Configuration:** {fastest[1]['zero_stage']} ({fastest[1]['variant']}) ")
+            f.write(f"- **Fastest Configuration:** {fastest[1]['backend_stage']} ({fastest[1]['variant']}) ")
             f.write(f"with {fastest[1]['avg_time']:.3f}s average iteration time\n")
         
         if loss_analysis:
             # Find best convergence
             best_loss = min(loss_analysis.items(), key=lambda x: x[1]['min_loss'] if x[1]['min_loss'] else float('inf'))
-            f.write(f"- **Best Loss Convergence:** {best_loss[1]['zero_stage']} ({best_loss[1]['variant']}) ")
+            f.write(f"- **Best Loss Convergence:** {best_loss[1]['backend_stage']} ({best_loss[1]['variant']}) ")
             f.write(f"with minimum loss of {best_loss[1]['min_loss']:.6f}\n")
         
         f.write("\n## Appendix\n\n")

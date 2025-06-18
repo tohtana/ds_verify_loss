@@ -1,0 +1,93 @@
+# Batch experiment conditions configuration
+# Define different sets of conditions to run experiments
+
+# Common options that can be reused
+common_options:
+  compile_opts: "--compile"
+  deepcompile_opts: "--compile --deepcompile"
+  gradient_accumulation: "--gradient_accumulation_steps 4"
+  activation_checkpointing: "--activation-checkpointing"
+  dataset_percentage: "--dataset_percentage 20.0"
+  wandb: "--use_wandb"
+
+# Base arguments applied to all conditions
+base_args: "{gradient_accumulation} {dataset_percentage}"
+
+# Predefined condition sets
+condition_sets:
+  
+  # Compare ZeRO stages with baseline
+  zero_comparison:
+    description: "Compare ZeRO stages 1, 2, and 3 baseline performance"
+    conditions:
+      z1_baseline:
+        args: "--backend deepspeed --zero_stage 1 {base_args} {wandb}"
+        description: "ZeRO stage 1 baseline"
+      z2_baseline:
+        args: "--backend deepspeed --zero_stage 2 {base_args} {wandb}"
+        description: "ZeRO stage 2 baseline"
+      z3_baseline:
+        args: "--backend deepspeed --zero_stage 3 {base_args} {wandb}"
+        description: "ZeRO stage 3 baseline"
+
+  # Compare ZeRO vs FSDP
+  zero_vs_fsdp:
+    description: "Compare ZeRO stage 3 vs FSDP"
+    conditions:
+      z3_baseline:
+        args: "--backend deepspeed --zero_stage 3 {base_args} {wandb}"
+        description: "ZeRO stage 3 baseline"
+      fsdp_baseline:
+        args: "--backend fsdp {base_args} {wandb}"
+        description: "FSDP baseline"
+
+  # Compilation comparison  
+  compile_comparison:
+    description: "Compare compilation effects on ZeRO stage 2"
+    conditions:
+      z2_baseline:
+        args: "--backend deepspeed --zero_stage 2 {base_args} {wandb}"
+        description: "ZeRO stage 2 without compilation"
+      z2_compile:
+        args: "--backend deepspeed --zero_stage 2 {base_args} {compile_opts} {wandb}"
+        description: "ZeRO stage 2 with compilation"
+      z2_deepcompile:
+        args: "--backend deepspeed --zero_stage 2 {base_args} {deepcompile_opts} {wandb}"
+        description: "ZeRO stage 2 with deep compilation"
+
+  # Full comparison (original behavior)
+  full_comparison:
+    description: "Full comparison of all ZeRO stages with and without compilation"
+    conditions:
+      z1_baseline:
+        args: "--backend deepspeed --zero_stage 1 {base_args} {wandb}"
+        description: "ZeRO stage 1 baseline"
+      z2_baseline:
+        args: "--backend deepspeed --zero_stage 2 {base_args} {wandb}"
+        description: "ZeRO stage 2 baseline"
+      z3_baseline:
+        args: "--backend deepspeed --zero_stage 3 {base_args} {wandb}"
+        description: "ZeRO stage 3 baseline"
+      z1_deepcompile:
+        args: "--backend deepspeed --zero_stage 1 {base_args} {deepcompile_opts} {wandb}"
+        description: "ZeRO stage 1 with deep compilation"
+      z2_deepcompile:
+        args: "--backend deepspeed --zero_stage 2 {base_args} {deepcompile_opts} {wandb}"
+        description: "ZeRO stage 2 with deep compilation"
+      z3_deepcompile:
+        args: "--backend deepspeed --zero_stage 3 {base_args} {deepcompile_opts} {wandb}"
+        description: "ZeRO stage 3 with deep compilation"
+
+  # Custom example: memory efficiency focus
+  memory_efficiency:
+    description: "Focus on memory efficiency with different strategies"
+    conditions:
+      z3_baseline:
+        args: "--backend deepspeed --zero_stage 3 {base_args} {wandb}"
+        description: "ZeRO stage 3 for memory efficiency"
+      z3_activation_checkpoint:
+        args: "--backend deepspeed --zero_stage 3 {base_args} {activation_checkpointing} {wandb}"
+        description: "ZeRO stage 3 with activation checkpointing"
+      fsdp_baseline:
+        args: "--backend fsdp {base_args} {wandb}"
+        description: "FSDP for comparison"
