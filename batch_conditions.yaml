@@ -41,6 +41,20 @@ condition_sets:
         args: "--backend fsdp {base_args} {wandb}"
         description: "FSDP baseline"
 
+  # Compare ZeRO vs FSDP with DeepCompile
+  zero_vs_fsdp_with_deepcompile:
+    description: "Compare ZeRO stage 3 vs FSDP with DeepCompile optimization"
+    conditions:
+      z3_baseline:
+        args: "--backend deepspeed --zero_stage 3 {base_args} {wandb}"
+        description: "ZeRO stage 3 baseline"
+      z3_deepcompile:
+        args: "--backend deepspeed --zero_stage 3 {base_args} {deepcompile_opts} {wandb}"
+        description: "ZeRO stage 3 with DeepCompile"
+      fsdp_baseline:
+        args: "--backend fsdp {base_args} {wandb}"
+        description: "FSDP baseline"
+
   # Compilation comparison  
   compile_comparison:
     description: "Compare compilation effects on ZeRO stage 2"
@@ -91,3 +105,29 @@ condition_sets:
       fsdp_baseline:
         args: "--backend fsdp {base_args} {wandb}"
         description: "FSDP for comparison"
+
+  # Comprehensive comparison: All ZeRO stages with/without DeepCompile + FSDP
+  comprehensive_comparison:
+    description: "Comprehensive comparison of ZeRO 1/2/3 with and without DeepCompile vs FSDP"
+    conditions:
+      z1_baseline:
+        args: "--backend deepspeed --zero_stage 1 {base_args} {wandb}"
+        description: "ZeRO stage 1 baseline"
+      z1_deepcompile:
+        args: "--backend deepspeed --zero_stage 1 {base_args} {deepcompile_opts} {wandb}"
+        description: "ZeRO stage 1 with DeepCompile"
+      z2_baseline:
+        args: "--backend deepspeed --zero_stage 2 {base_args} {wandb}"
+        description: "ZeRO stage 2 baseline"
+      z2_deepcompile:
+        args: "--backend deepspeed --zero_stage 2 {base_args} {deepcompile_opts} {wandb}"
+        description: "ZeRO stage 2 with DeepCompile"
+      z3_baseline:
+        args: "--backend deepspeed --zero_stage 3 {base_args} {wandb}"
+        description: "ZeRO stage 3 baseline"
+      z3_deepcompile:
+        args: "--backend deepspeed --zero_stage 3 {base_args} {deepcompile_opts} {wandb}"
+        description: "ZeRO stage 3 with DeepCompile"
+      fsdp_baseline:
+        args: "--backend fsdp {base_args} {wandb}"
+        description: "FSDP baseline"

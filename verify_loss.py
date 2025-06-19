@@ -6,7 +6,7 @@ from contextlib import nullcontext
 from typing import List
 
 import torch
-from transformers import AutoConfig, AutoModelForCausalLM, enable_full_determinism
+from transformers import AutoConfig, AutoModelForCausalLM, enable_full_determinism, set_seed
 from accelerate import Accelerator
 import wandb
 
@@ -33,6 +33,7 @@ def get_args():
     parser.add_argument("--offload_opt_states", action="store_true")
     parser.add_argument("--profile", action="store_true")
     parser.add_argument("--deterministic", action="store_true")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
     parser.add_argument("--profile_dir", type=str, default=None)
     parser.add_argument("--bench_step", type=int, default=100)
     parser.add_argument("--warmup_step", type=int, default=15)
@@ -81,9 +82,11 @@ def main():
         os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
 
     if args.deterministic:
-        enable_full_determinism(1)
+        enable_full_determinism(args.seed)
         from torch._inductor import config
         config.fallback_random = True
+    else:
+        set_seed(args.seed)
 
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps)
     device = accelerator.device
