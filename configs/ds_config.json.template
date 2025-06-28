@@ -11,7 +11,7 @@
     {% endif %}
     "zero_optimization": {
         "stage": {{ zero_stage }},
-        "sub_group_size": 100000000
+        "overlap_comm": true
     },
     "compile": {
         "deepcompile": {{ deepcompile }},
