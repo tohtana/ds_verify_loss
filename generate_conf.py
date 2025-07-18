@@ -22,6 +22,7 @@ def get_args():
     parser.add_argument('--sync_after_reduce', action='store_true', help='Sync after reduce')
     parser.add_argument('--sync_before_allgather', action='store_true', help='Sync before allgather')
     parser.add_argument('--sync_after_allgather', action='store_true', help='Sync after allgather')
+    parser.add_argument('--native_reduce_scatter', action='store_true', help='Use native reduce-scatter for gradient reduction')
                         
     parser.add_argument('--template_file', type=Path, help='Template file')
     parser.add_argument('--output_file', type=Path, help='Output file')
@@ -45,7 +46,8 @@ def main(args):
                                 sync_before_reduce=str(args.sync_before_reduce).lower(),
                                 sync_after_reduce=str(args.sync_after_reduce).lower(),
                                 sync_before_allgather=str(args.sync_before_allgather).lower(),
-                                sync_after_allgather=str(args.sync_after_allgather).lower()))
+                                sync_after_allgather=str(args.sync_after_allgather).lower(),
+                                native_reduce_scatter=str(args.native_reduce_scatter).lower()))
 
 if __name__ == '__main__':
     args = get_args()

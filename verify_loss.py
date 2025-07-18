@@ -106,10 +106,15 @@ def main():
         if args.num_layers > 0:
             print(f"num_hidden_layers: {model_config.num_hidden_layers} -> {args.num_layers}")
             model_config.num_hidden_layers = args.num_layers
-        model = AutoModelForCausalLM.from_config(model_config, trust_remote_code=True)
+        with torch.device(device):
+            model = AutoModelForCausalLM.from_config(model_config, trust_remote_code=True)
+
+    print(f"Model loaded: {model.__class__}")
 
     # Load tokenizer
     tokenizer = get_tokenizer(model_name, trust_remote_code=True)
+
+    print(f"Tokenizer loaded: {tokenizer.__class__}")
 
     if args.activation_checkpointing:
         model.gradient_checkpointing_enable()

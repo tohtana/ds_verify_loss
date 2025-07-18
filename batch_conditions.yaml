@@ -9,9 +9,11 @@ common_options:
   activation_checkpointing: "--activation-checkpointing"
   dataset_percentage: "--dataset_percentage 20.0"
   wandb: "--use_wandb"
+  batch_size: "--batch_size 1"
+  seq_length: "--seq_length 2048"
 
 # Base arguments applied to all conditions
-base_args: "{gradient_accumulation} {dataset_percentage}"
+base_args: "{gradient_accumulation} {dataset_percentage} {batch_size} {seq_length}"
 
 # Predefined condition sets
 condition_sets:
@@ -91,6 +93,17 @@ condition_sets:
       z3_deepcompile:
         args: "--backend deepspeed --zero_stage 3 {base_args} {deepcompile_opts} {wandb}"
         description: "ZeRO stage 3 with deep compilation"
+
+  # Native reduce-scatter comparison
+  native_reduce_scatter_comparison:
+    description: "Compare native reduce-scatter performance for ZeRO-1"
+    conditions:
+      z1_baseline:
+        args: "--backend deepspeed --zero_stage 1 {base_args}"
+        description: "ZeRO stage 1 baseline"
+      z1_native_reduce_scatter:
+        args: "--backend deepspeed --zero_stage 1 --native_reduce_scatter {base_args}"
+        description: "ZeRO stage 1 with native reduce-scatter"
 
   # Custom example: memory efficiency focus
   memory_efficiency:

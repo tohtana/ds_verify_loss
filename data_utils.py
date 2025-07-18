@@ -74,10 +74,11 @@ def load_and_prepare_dataset(
         # Convert to integer percentage to avoid decimal points
         percentage_int = int(dataset_percentage * 100)
         split_str = f"train[:{percentage_int}%]"
-    
+
     # Load the specified dataset
     if dataset_name == "wikitext":
-        dataset = load_dataset('wikitext', 'wikitext-103-raw-v1', split=split_str, download_config=DownloadConfig(disable_tqdm=True))
+        download_config = DownloadConfig(disable_tqdm=True, num_proc=4, resume_download=True)
+        dataset = load_dataset('wikitext', 'wikitext-103-raw-v1', split=split_str, download_config=download_config)
         text_column = 'text'
     elif dataset_name == "openwebtext":
         # For openwebtext, use a smaller percentage since it's very large
@@ -127,7 +128,7 @@ def load_and_prepare_dataset(
     if is_main_process:
         print("Tokenizing dataset...")
     
-    tokenized_dataset = dataset.map(tokenize_function, batched=True, num_proc=1, keep_in_memory=True)
+    tokenized_dataset = dataset.map(tokenize_function, batched=True, num_proc=4, keep_in_memory=False)
     tokenized_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask'])
     
     if is_main_process:

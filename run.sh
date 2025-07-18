@@ -22,6 +22,7 @@ SYNC_BEFORE_REDUCE=0
 SYNC_AFTER_REDUCE=0
 SYNC_BEFORE_ALLGATHER=0
 SYNC_AFTER_ALLGATHER=0
+NATIVE_REDUCE_SCATTER=0
 
 HOST_IP="127.0.0.1"
 MACHINE_RANK=0
@@ -109,6 +110,10 @@ while [[ $# -gt 0 ]]; do
             SYNC_AFTER_ALLGATHER=1
             shift
             ;;
+        --native_reduce_scatter)
+            NATIVE_REDUCE_SCATTER=1
+            shift
+            ;;
         *)
             # Check if the next argument looks like a value (doesn't start with --)
             if [[ $# -gt 1 && ! "$2" =~ ^-- ]]; then
@@ -151,7 +156,7 @@ echo "MODEL: ${MODEL}"
 echo "GRADIENT_ACCUMULATION_STEPS: ${GRADIENT_ACCUMULATION_STEPS}"
 echo "EXTRA_OPTS: ${EXTRA_OPTS}"
 
-python generate_conf.py \
+python3 generate_conf.py \
     --machine_rank ${MACHINE_RANK} \
     --num_machines ${NUM_NODES} \
     --num_processes ${NUM_PROCESSES} \
@@ -192,7 +197,12 @@ if [ "${BACKEND}" == "deepspeed" ]; then
         SYNC_AFTER_ALLGATHER_OPTS="--sync_after_allgather"
     fi
 
-    python generate_conf.py \
+    NATIVE_REDUCE_SCATTER_OPTS=""
+    if [ "${NATIVE_REDUCE_SCATTER}" == "1" ]; then
+        NATIVE_REDUCE_SCATTER_OPTS="--native_reduce_scatter"
+    fi
+
+    python3 generate_conf.py \
         --machine_rank ${MACHINE_RANK} \
         --num_machines ${NUM_NODES} \
         --num_processes ${NUM_PROCESSES} \
@@ -201,6 +211,7 @@ if [ "${BACKEND}" == "deepspeed" ]; then
         ${DEEPCOMPILE_OPTS} ${DEBUG_LOG_OPTS} \
         ${SYNC_BEFORE_REDUCE_OPTS} ${SYNC_AFTER_REDUCE_OPTS} \
         ${SYNC_BEFORE_ALLGATHER_OPTS} ${SYNC_AFTER_ALLGATHER_OPTS} \
+        ${NATIVE_REDUCE_SCATTER_OPTS} \
         --template_file configs/ds_config.json.template \
         --output_file configs/ds_config.json
 fi

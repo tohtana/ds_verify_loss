@@ -11,7 +11,8 @@
     {% endif %}
     "zero_optimization": {
         "stage": {{ zero_stage }},
-        "overlap_comm": true
+        "overlap_comm": true,
+        "native_reduce_scatter": {{ native_reduce_scatter }}
     },
     "compile": {
         "deepcompile": {{ deepcompile }},
