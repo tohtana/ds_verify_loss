@@ -2,7 +2,7 @@ import os
 import argparse
 import time
 from datetime import datetime
-from contextlib import nullcontext
+from contextlib import nullcontext, contextmanager
 from typing import List
 
 import torch
@@ -12,11 +12,20 @@ import wandb
 
 from data_utils import get_tokenizer, load_and_prepare_dataset
 
+@contextmanager
+def use_default_device(device):
+    prev_device = torch.get_default_device()
+    torch.set_default_device(device)
+    try:
+        yield
+    finally:
+        torch.set_default_device(prev_device)
+
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", type=str, default="meta-llama/Llama-2-7b-hf")
     parser.add_argument("--batch_size", type=int, default=1)
-    parser.add_argument("--num_epochs", type=int, default=5)
+    parser.add_argument("--num_epochs", type=int, default=1)
     parser.add_argument("--seq_length", type=int, default=512)
     parser.add_argument("--learning_rate", type=float, default=1e-6)
     parser.add_argument("--max_grad_norm", type=float, default=1.0)
@@ -103,10 +112,11 @@ def main():
         model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=True)
     else:
         model_config = AutoConfig.from_pretrained(model_name, attn_implementation=args.attn_impl, trust_remote_code=True)
-        if args.num_layers > 0:
-            print(f"num_hidden_layers: {model_config.num_hidden_layers} -> {args.num_layers}")
-            model_config.num_hidden_layers = args.num_layers
-        model = AutoModelForCausalLM.from_config(model_config, trust_remote_code=True)
+        with use_default_device(device):
+            if args.num_layers > 0:
+                print(f"num_hidden_layers: {model_config.num_hidden_layers} -> {args.num_layers}")
+                model_config.num_hidden_layers = args.num_layers
+            model = AutoModelForCausalLM.from_config(model_config, trust_remote_code=True)
 
     # Load tokenizer
     tokenizer = get_tokenizer(model_name, trust_remote_code=True)
