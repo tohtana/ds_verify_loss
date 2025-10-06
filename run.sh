@@ -22,6 +22,9 @@ SYNC_BEFORE_REDUCE=0
 SYNC_AFTER_REDUCE=0
 SYNC_BEFORE_ALLGATHER=0
 SYNC_AFTER_ALLGATHER=0
+UNIVERSAL_OPTIMIZER=0
+UO_GRAD_ACCUM_DTYPE=""
+UO_OPTIMIZER_DTYPE=""
 
 HOST_IP="127.0.0.1"
 MACHINE_RANK=0
@@ -108,6 +111,21 @@ while [[ $# -gt 0 ]]; do
         --sync_after_allgather)
             SYNC_AFTER_ALLGATHER=1
             shift
+            ;;
+        --universal_optimizer)
+            UNIVERSAL_OPTIMIZER=1
+            EXTRA_OPTS="${EXTRA_OPTS} --universal_optimizer"
+            shift
+            ;;
+        --uo_grad_accum_dtype)
+            UO_GRAD_ACCUM_DTYPE="$2"
+            EXTRA_OPTS="${EXTRA_OPTS} --uo_grad_accum_dtype $2"
+            shift 2
+            ;;
+        --uo_optimizer_dtype)
+            UO_OPTIMIZER_DTYPE="$2"
+            EXTRA_OPTS="${EXTRA_OPTS} --uo_optimizer_dtype $2"
+            shift 2
             ;;
         *)
             # Check if the next argument looks like a value (doesn't start with --)
@@ -207,9 +225,18 @@ fi
 
 #replace , with _ in PASSES
 PASSES=$(echo $PASSES | tr ',' '_')
+UNIV="${UNIVERSAL_OPTIMIZER}"
+if [ "${UNIVERSAL_OPTIMIZER}" == "1" ]; then
+    if [ -n "${UO_GRAD_ACCUM_DTYPE}" ]; then
+        UNIV="${UNIV}_ga${UO_GRAD_ACCUM_DTYPE}"
+    fi
+    if [ -n "${UO_OPTIMIZER_DTYPE}" ]; then
+        UNIV="${UNIV}_opt${UO_OPTIMIZER_DTYPE}"
+    fi
+fi
 LOG_DIR=logs
 mkdir -p ${LOG_DIR}
-LOG_FILE=${LOG_DIR}/debug_n${MACHINE_RANK}_${MODEL##*/}_${BACKEND}_np${NUM_PROCESSES}z${ZERO_STAGE}c${COMPILE}dc${DEEPCOMPILE}E${EAGER}b${BATCH_SIZE}seq${SEQ_LENGTH}g${GRADIENT_ACCUMULATION_STEPS}a${ACTIVATION_CHECKPOINTING}p${PASSES}.log
+LOG_FILE=${LOG_DIR}/debug_n${MACHINE_RANK}_${MODEL##*/}_${BACKEND}_np${NUM_PROCESSES}z${ZERO_STAGE}c${COMPILE}dc${DEEPCOMPILE}E${EAGER}b${BATCH_SIZE}seq${SEQ_LENGTH}g${GRADIENT_ACCUMULATION_STEPS}a${ACTIVATION_CHECKPOINTING}p${PASSES}univ${UNIV}.log
 echo "Logging to ${LOG_FILE}"
 
 accelerate launch --main_process_ip ${HOST_IP} --main_process_port 12345 \

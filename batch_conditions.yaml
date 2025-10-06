@@ -5,10 +5,11 @@
 common_options:
   compile_opts: "--compile"
   deepcompile_opts: "--compile --deepcompile"
-  gradient_accumulation: "--gradient_accumulation_steps 4"
+  gradient_accumulation: "--gradient_accumulation_steps 1"
   activation_checkpointing: "--activation-checkpointing"
-  dataset_percentage: "--dataset_percentage 20.0"
+  dataset_percentage: "--dataset_percentage 2.0"
   wandb: "--use_wandb"
+  profile: "--profile --profile_dir /tmp/profile_output"
 
 # Base arguments applied to all conditions
 base_args: "{gradient_accumulation} {dataset_percentage}"
@@ -131,3 +132,23 @@ condition_sets:
       fsdp_baseline:
         args: "--backend fsdp {base_args} {wandb}"
         description: "FSDP baseline"
+
+  universal_optimizer_comparison:
+    description: "Compare Universal Optimizer with ZeRO stage 1"
+    conditions:
+      z1_baseline:
+        args: "--backend deepspeed --zero_stage 1 {base_args}"
+        description: "ZeRO stage 1 baseline"
+      # universal_optimizer:
+      #   args: "--backend deepspeed --zero_stage 1 {base_args} --universal_optimizer {base_args} {wandb}"
+      #   description: "Universal Optimizer pure bf16"
+      universal_optimizer_fp32_optimizer:
+        args: "--backend deepspeed --zero_stage 1 {base_args} --universal_optimizer --uo_optimizer_dtype torch.float32 {base_args}"
+        description: "Universal Optimizer"
+
+  universal_optimizer_debug:
+    description: "Debug Universal Optimizer with ZeRO stage 1"
+    conditions:
+      universal_optimizer_fp32_optimizer:
+        args: "--backend deepspeed --zero_stage 1 {base_args} --universal_optimizer --uo_optimizer_dtype torch.float32 {base_args}"
+        description: "Universal Optimizer"
