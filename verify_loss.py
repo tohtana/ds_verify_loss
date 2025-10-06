@@ -44,12 +44,19 @@ def get_args():
     parser.add_argument("--deterministic", action="store_true")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
     parser.add_argument("--profile_dir", type=str, default=None)
-    parser.add_argument("--bench_step", type=int, default=100)
+    parser.add_argument("--bench_step", type=int, default=10)
     parser.add_argument("--warmup_step", type=int, default=15)
     parser.add_argument("--zero_stage", type=int, default=3)
     parser.add_argument("--log_interval", type=int, default=10)
     parser.add_argument("--save_weights", action="store_true")
     parser.add_argument("--load_weights", action="store_true")
+    parser.add_argument("--local_rank", type=int, default=-1)
+    parser.add_argument("--universal_optimizer", action="store_true",
+                        help="Enable DeepSpeed universal optimizer")
+    parser.add_argument("--uo_grad_accum_dtype", type=str, default=None,
+                        help="(Optional) dtype for universal optimizer gradient accumulation, e.g. torch.float32")
+    parser.add_argument("--uo_optimizer_dtype", type=str, default=None,
+                        help="(Optional) dtype for universal optimizer states, e.g. torch.float32")
     
     # WandB logging arguments
     parser.add_argument("--use_wandb", action="store_true", help="Enable wandb logging")
@@ -101,6 +108,25 @@ def main():
     device = accelerator.device
     is_deepspeed = accelerator.state.deepspeed_plugin is not None
     print(f"Running on device: {device} is_deepspeed: {is_deepspeed}")
+
+    if args.universal_optimizer:
+        if not is_deepspeed:
+            raise ValueError("Universal optimizer requires the DeepSpeed backend")
+        if args.zero_stage not in (1, 2):
+            raise ValueError("Universal optimizer currently supports ZeRO stage 1 or 2")
+
+        ds_plugin = accelerator.state.deepspeed_plugin
+        ds_config = ds_plugin.deepspeed_config
+        uo_config = ds_config.get("universal_optimizer", {})
+        uo_config["enabled"] = True
+        if args.uo_grad_accum_dtype is not None:
+            uo_config["grad_accum_dtype"] = args.uo_grad_accum_dtype
+        if args.uo_optimizer_dtype is not None:
+            uo_config["optimizer_dtype"] = args.uo_optimizer_dtype
+        ds_config["universal_optimizer"] = uo_config
+        ds_plugin.deepspeed_config = ds_config
+        if accelerator.is_main_process:
+            print(f"Enabled universal optimizer with config: {uo_config}")
 
     # Load model and tokenizer
     if accelerator.is_main_process:
@@ -234,7 +260,7 @@ def main():
     losses = []
 
     # See https://github.com/microsoft/DeepSpeed/issues/6793
-    acc_context = nullcontext if is_deepspeed else accelerator.accumulate
+    acc_context = accelerator.accumulate
 
     stop = False
     with prof_context as prof:
@@ -249,8 +275,7 @@ def main():
                     outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids, use_cache=False)
                     loss = outputs.loss
 
-                    update_step = (is_deepspeed and model.is_gradient_accumulation_boundary()) \
-                        or (not is_deepspeed and accelerator.sync_gradients)
+                    update_step = accelerator.sync_gradients
                     accelerator.backward(loss)
                     optimizer.step()
                     optimizer.zero_grad()
