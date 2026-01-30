@@ -61,7 +61,7 @@ For ZeRO3 [leaf modules](https://deepspeed.readthedocs.io/en/latest/training.htm
 | **With Fix v2** (backward-only sync) | **2.5065s** | 59.72 GB | 67.83 GB |
 | **With Fix v1** (forward+backward sync) | 2.5205s | 59.72 GB | 67.83 GB |
 | **Without Fix** (master) | 2.5182s | 59.72 GB | 67.83 GB |
-| **v2 vs Master** | **-0.46%** (faster!) | 0% | 0% |
+| **v2 vs Master** | **-0.46%** | 0% | 0% |
 
 #### Reduced Model (4 layers, for quick testing)
 
