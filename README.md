@@ -16,7 +16,7 @@ For ZeRO3 [leaf modules](https://deepspeed.readthedocs.io/en/latest/training.htm
 
 | Parameter | Value |
 |-----------|-------|
-| **Model** | `mistralai/Mixtral-8x7B-v0.1` (4 layers) |
+| **Model** | `mistralai/Mixtral-8x7B-v0.1` (full: 32 layers, reduced: 4 layers) |
 | **Batch Size** | 4 |
 | **Sequence Length** | 1024 |
 | **ZeRO Stage** | 3 |
@@ -53,6 +53,16 @@ For ZeRO3 [leaf modules](https://deepspeed.readthedocs.io/en/latest/training.htm
 ```
 
 ### Results
+
+#### Full Model (32 layers)
+
+| Condition | Avg Iteration Time | Memory (Alloc) | Memory (Peak) |
+|-----------|-------------------|----------------|---------------|
+| **With Fix** (PR #7825) | **2.5205s** | 59.72 GB | 67.83 GB |
+| **Without Fix** (master) | **2.5182s** | 59.72 GB | 67.83 GB |
+| **Overhead** | **+0.09%** (~2.3ms) | 0% | 0% |
+
+#### Reduced Model (4 layers, for quick testing)
 
 | Condition | Avg Iteration Time | Memory (Alloc) | Memory (Peak) |
 |-----------|-------------------|----------------|---------------|
