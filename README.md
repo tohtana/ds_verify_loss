@@ -109,18 +109,6 @@ bash run.sh \
     2>&1 | tee perf_results/without_fix.log
 ```
 
-### Analysis
-
-The synchronization fix introduces a **negligible overhead of ~0.9%**, which is within measurement noise. This is expected because:
-
-1. **Lock is held briefly** - The global lock (`__leaf_module_lock`) only protects dictionary operations (check/set/remove event), not the actual parameter fetching
-2. **Actual work happens outside lock** - The expensive operations (parameter gathering, CUDA allgather) execute outside the critical section
-3. **Minimal contention** - Contention only occurs when multiple threads try to fetch the *same* leaf module concurrently
-
-### Conclusion
-
-The performance impact is negligible. The fix is safe to merge without performance concerns.
-
 **Date:** 2026-01-30
 
 ---
