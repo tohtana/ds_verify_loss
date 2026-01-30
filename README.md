@@ -58,17 +58,21 @@ For ZeRO3 [leaf modules](https://deepspeed.readthedocs.io/en/latest/training.htm
 
 | Condition | Avg Iteration Time | Memory (Alloc) | Memory (Peak) |
 |-----------|-------------------|----------------|---------------|
-| **With Fix** (PR #7825) | **2.5205s** | 59.72 GB | 67.83 GB |
-| **Without Fix** (master) | **2.5182s** | 59.72 GB | 67.83 GB |
-| **Overhead** | **+0.09%** (~2.3ms) | 0% | 0% |
+| **With Fix v2** (backward-only sync) | **2.5065s** | 59.72 GB | 67.83 GB |
+| **With Fix v1** (forward+backward sync) | 2.5205s | 59.72 GB | 67.83 GB |
+| **Without Fix** (master) | 2.5182s | 59.72 GB | 67.83 GB |
+| **v2 vs Master** | **-0.46%** (faster!) | 0% | 0% |
 
 #### Reduced Model (4 layers, for quick testing)
 
 | Condition | Avg Iteration Time | Memory (Alloc) | Memory (Peak) |
 |-----------|-------------------|----------------|---------------|
-| **With Fix** (PR #7825) | **0.3693s** | 8.92 GB | 16.40 GB |
-| **Without Fix** (master) | **0.3660s** | 8.92 GB | 16.40 GB |
-| **Overhead** | **+0.9%** (~3.3ms) | 0% | 0% |
+| **With Fix v2** (backward-only sync) | **0.3687s** | 8.92 GB | 16.40 GB |
+| **With Fix v1** (forward+backward sync) | 0.3693s | 8.92 GB | 16.40 GB |
+| **Without Fix** (master) | 0.3660s | 8.92 GB | 16.40 GB |
+| **v2 vs Master** | **+0.74%** | 0% | 0% |
+
+**Note:** v2 skips synchronization on forward passes (which are single-threaded), only synchronizing during backward passes where the race condition can occur.
 
 ### Commands to Reproduce
 
