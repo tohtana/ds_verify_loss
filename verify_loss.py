@@ -12,6 +12,13 @@ import wandb
 
 from data_utils import get_tokenizer, load_and_prepare_dataset
 
+# For ZeRO3 leaf module support with MoE models
+try:
+    from transformers.models.mixtral.modeling_mixtral import MixtralSparseMoeBlock
+    HAS_MIXTRAL_MOE = True
+except ImportError:
+    HAS_MIXTRAL_MOE = False
+
 @contextmanager
 def use_default_device(device):
     prev_device = torch.get_default_device()
@@ -56,6 +63,9 @@ def get_args():
     parser.add_argument("--wandb_project", type=str, default="ds-verify-loss", help="WandB project name")
     parser.add_argument("--wandb_run_name", type=str, default=None, help="WandB run name")
     parser.add_argument("--wandb_tags", type=str, nargs="+", default=[], help="WandB tags for the run")
+    
+    # ZeRO3 leaf module support for MoE models
+    parser.add_argument("--use_leaf_modules", action="store_true", help="Enable ZeRO3 leaf modules for MoE blocks")
 
     return parser.parse_args()
 
@@ -123,6 +133,13 @@ def main():
 
     if args.activation_checkpointing:
         model.gradient_checkpointing_enable()
+
+    # Set ZeRO3 leaf modules for MoE blocks (helps with memory and performance)
+    if args.use_leaf_modules and "Mixtral" in model_name and HAS_MIXTRAL_MOE:
+        from deepspeed.utils.z3_leaf_module import set_z3_leaf_modules
+        set_z3_leaf_modules(model, [MixtralSparseMoeBlock])
+        if accelerator.is_main_process:
+            print(f"Set ZeRO3 leaf modules for MixtralSparseMoeBlock")
 
     # Load and prepare dataset
     _, data_loader, _ = load_and_prepare_dataset(

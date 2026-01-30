@@ -2,6 +2,119 @@
 
 The scripts in this repository run training using DeepSpeed with different settings. They also plots loss curves and iteration times for comparison.
 
+---
+
+## Performance Test: Leaf Module Synchronization Fix (PR #7825)
+
+This section documents the performance impact of the leaf module race condition fix in [DeepSpeed PR #7825](https://github.com/deepspeedai/DeepSpeed/pull/7825).
+
+### Background
+
+For ZeRO3 [leaf modules](https://deepspeed.readthedocs.io/en/latest/training.html#configuring-zero-leaf-modules), when a module returns multiple output tensors, PyTorch's autograd can trigger backward hooks from multiple threads concurrently. This causes race conditions in parameter state management. PR #7825 adds thread synchronization to prevent this.
+
+### Test Configuration
+
+| Parameter | Value |
+|-----------|-------|
+| **Model** | `mistralai/Mixtral-8x7B-v0.1` (4 layers) |
+| **Batch Size** | 4 |
+| **Sequence Length** | 1024 |
+| **ZeRO Stage** | 3 |
+| **Hardware** | 8x NVIDIA H100 80GB HBM3 |
+| **Leaf Modules** | `MixtralSparseMoeBlock` |
+| **Warmup Steps** | 10 |
+| **Benchmark Steps** | 30 |
+| **Activation Checkpointing** | Enabled |
+| **Mixed Precision** | BF16 with `torch_autocast` |
+| **Low-Precision Master States** | `bf16_master_weights_and_grads: true`, `bf16_optimizer_states: true` |
+
+### DeepSpeed Config
+
+```json
+{
+    "bf16": {
+        "enabled": true,
+        "bf16_master_weights_and_grads": true,
+        "bf16_optimizer_states": true
+    },
+    "torch_autocast": {
+        "enabled": true,
+        "dtype": "bfloat16"
+    },
+    "zero_optimization": {
+        "stage": 3,
+        "overlap_comm": true
+    },
+    "gradient_accumulation_steps": 1,
+    "gradient_clipping": "auto",
+    "train_batch_size": "auto",
+    "train_micro_batch_size_per_gpu": "auto"
+}
+```
+
+### Results
+
+| Condition | Avg Iteration Time | Memory (Alloc) | Memory (Peak) |
+|-----------|-------------------|----------------|---------------|
+| **With Fix** (PR #7825) | **0.3693s** | 8.92 GB | 16.40 GB |
+| **Without Fix** (master) | **0.3660s** | 8.92 GB | 16.40 GB |
+| **Overhead** | **+0.9%** (~3.3ms) | 0% | 0% |
+
+### Commands to Reproduce
+
+```bash
+# 1. Ensure DeepSpeed is installed from the fix branch
+cd /home/ray/default/ds/DeepSpeed
+git checkout tohtana/fix_leaf_module_race_condition
+pip install -e .
+
+# 2. Run benchmark WITH the fix
+cd /home/ray/default/ds/ds_verify_loss
+bash run.sh \
+    --model "mistralai/Mixtral-8x7B-v0.1" \
+    --batch_size 4 \
+    --seq_length 1024 \
+    --num_layers 4 \
+    --bench_step 30 \
+    --warmup_step 10 \
+    --activation_checkpointing \
+    --use_leaf_modules \
+    2>&1 | tee perf_results/with_fix.log
+
+# 3. Switch to master branch and run WITHOUT the fix
+cd /home/ray/default/ds/DeepSpeed
+git checkout master
+pip install -e .
+
+cd /home/ray/default/ds/ds_verify_loss
+bash run.sh \
+    --model "mistralai/Mixtral-8x7B-v0.1" \
+    --batch_size 4 \
+    --seq_length 1024 \
+    --num_layers 4 \
+    --bench_step 30 \
+    --warmup_step 10 \
+    --activation_checkpointing \
+    --use_leaf_modules \
+    2>&1 | tee perf_results/without_fix.log
+```
+
+### Analysis
+
+The synchronization fix introduces a **negligible overhead of ~0.9%**, which is within measurement noise. This is expected because:
+
+1. **Lock is held briefly** - The global lock (`__leaf_module_lock`) only protects dictionary operations (check/set/remove event), not the actual parameter fetching
+2. **Actual work happens outside lock** - The expensive operations (parameter gathering, CUDA allgather) execute outside the critical section
+3. **Minimal contention** - Contention only occurs when multiple threads try to fetch the *same* leaf module concurrently
+
+### Conclusion
+
+The performance impact is negligible. The fix is safe to merge without performance concerns.
+
+**Date:** 2026-01-30
+
+---
+
 ## Usage
 
 ### 1. Run training

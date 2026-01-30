@@ -109,6 +109,10 @@ while [[ $# -gt 0 ]]; do
             SYNC_AFTER_ALLGATHER=1
             shift
             ;;
+        --use_leaf_modules)
+            EXTRA_OPTS="${EXTRA_OPTS} --use_leaf_modules"
+            shift
+            ;;
         *)
             # Check if the next argument looks like a value (doesn't start with --)
             if [[ $# -gt 1 && ! "$2" =~ ^-- ]]; then
