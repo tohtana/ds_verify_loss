@@ -22,9 +22,15 @@ SYNC_BEFORE_REDUCE=0
 SYNC_AFTER_REDUCE=0
 SYNC_BEFORE_ALLGATHER=0
 SYNC_AFTER_ALLGATHER=0
+ZERO3_TUNING_STRATEGY="baseline"
+AGENT_BACKEND=""
+AGENT_MAX_ITERATIONS=3
+AGENT_TIMEOUT_SEC=300
+PASSES_SPECIFIED=0
 
 HOST_IP="127.0.0.1"
 MACHINE_RANK=0
+MAIN_PROCESS_PORT=${MAIN_PROCESS_PORT:-12345}
 
 echo "NUM_NODES: ${NUM_NODES} NGPUS_PER_NODE: ${NGPUS_PER_NODE} NUM_PROCESSES: ${NUM_PROCESSES}"
 
@@ -36,6 +42,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --machine_rank)
             MACHINE_RANK="$2"
+            shift 2
+            ;;
+        --main_process_port)
+            MAIN_PROCESS_PORT="$2"
             shift 2
             ;;
         --backend)
@@ -82,11 +92,34 @@ while [[ $# -gt 0 ]]; do
             ;;
         --passes)
             PASSES="$2"
+            PASSES_SPECIFIED=1
             EXTRA_OPTS="${EXTRA_OPTS} $1 $2"
             shift 2
             ;;
         --model)
             MODEL="$2"
+            shift 2
+            ;;
+        --zero3_tuning_strategy)
+            ZERO3_TUNING_STRATEGY="$2"
+            shift 2
+            ;;
+        --agent_backend)
+            AGENT_BACKEND="$2"
+            ZERO3_TUNING_STRATEGY="agent"
+            shift 2
+            ;;
+        --codex_agent)
+            AGENT_BACKEND="codex"
+            ZERO3_TUNING_STRATEGY="agent"
+            shift
+            ;;
+        --agent_max_iterations)
+            AGENT_MAX_ITERATIONS="$2"
+            shift 2
+            ;;
+        --agent_timeout_sec)
+            AGENT_TIMEOUT_SEC="$2"
             shift 2
             ;;
         --debug_log)
@@ -142,11 +175,38 @@ if [ "${BACKEND}" != "deepspeed" ]; then
     ZERO_STAGE=0
 fi
 
+if [ "${ZERO3_TUNING_STRATEGY}" == "agent" ]; then
+    if [ "${BACKEND}" != "deepspeed" ]; then
+        echo "Agent tuning requires --backend deepspeed"
+        exit 1
+    fi
+    if [ "${ZERO_STAGE}" != "3" ]; then
+        echo "Agent tuning currently requires --zero_stage 3"
+        exit 1
+    fi
+    if [ "${PASSES_SPECIFIED}" == "1" ]; then
+        echo "Agent tuning conflicts with --passes because DeepSpeed agent mode owns the warmup schedule"
+        exit 1
+    fi
+    if [ -z "${AGENT_BACKEND}" ]; then
+        echo "Agent tuning requires --agent_backend <name> or --codex_agent"
+        exit 1
+    fi
+    if [ "${COMPILE}" != "1" ]; then
+        COMPILE=1
+        EXTRA_OPTS="${EXTRA_OPTS} --compile"
+    fi
+    DEEPCOMPILE=1
+fi
+
 echo "HOST_IP: ${HOST_IP}"
+echo "MAIN_PROCESS_PORT: ${MAIN_PROCESS_PORT}"
 echo "NUM_NODES: ${NUM_NODES}"
 echo "NUM_PROCESSES: ${NUM_PROCESSES}"
 echo "BACKEND: ${BACKEND}"
 echo "ZERO_STAGE: ${ZERO_STAGE}"
+echo "ZERO3_TUNING_STRATEGY: ${ZERO3_TUNING_STRATEGY}"
+echo "AGENT_BACKEND: ${AGENT_BACKEND:-none}"
 echo "MODEL: ${MODEL}"
 echo "GRADIENT_ACCUMULATION_STEPS: ${GRADIENT_ACCUMULATION_STEPS}"
 echo "EXTRA_OPTS: ${EXTRA_OPTS}"
@@ -192,15 +252,24 @@ if [ "${BACKEND}" == "deepspeed" ]; then
         SYNC_AFTER_ALLGATHER_OPTS="--sync_after_allgather"
     fi
 
+    AGENT_BACKEND_OPTS=""
+    if [ -n "${AGENT_BACKEND}" ]; then
+        AGENT_BACKEND_OPTS="--agent_backend ${AGENT_BACKEND}"
+    fi
+
     python generate_conf.py \
         --machine_rank ${MACHINE_RANK} \
         --num_machines ${NUM_NODES} \
         --num_processes ${NUM_PROCESSES} \
         --zero_stage ${ZERO_STAGE} \
         --gradient_accumulation_steps ${GRADIENT_ACCUMULATION_STEPS} \
+        --zero3_tuning_strategy ${ZERO3_TUNING_STRATEGY} \
+        --agent_max_iterations ${AGENT_MAX_ITERATIONS} \
+        --agent_timeout_sec ${AGENT_TIMEOUT_SEC} \
         ${DEEPCOMPILE_OPTS} ${DEBUG_LOG_OPTS} \
         ${SYNC_BEFORE_REDUCE_OPTS} ${SYNC_AFTER_REDUCE_OPTS} \
         ${SYNC_BEFORE_ALLGATHER_OPTS} ${SYNC_AFTER_ALLGATHER_OPTS} \
+        ${AGENT_BACKEND_OPTS} \
         --template_file configs/ds_config.json.template \
         --output_file configs/ds_config.json
 fi
@@ -209,10 +278,10 @@ fi
 PASSES=$(echo $PASSES | tr ',' '_')
 LOG_DIR=logs
 mkdir -p ${LOG_DIR}
-LOG_FILE=${LOG_DIR}/debug_n${MACHINE_RANK}_${MODEL##*/}_${BACKEND}_np${NUM_PROCESSES}z${ZERO_STAGE}c${COMPILE}dc${DEEPCOMPILE}E${EAGER}b${BATCH_SIZE}seq${SEQ_LENGTH}g${GRADIENT_ACCUMULATION_STEPS}a${ACTIVATION_CHECKPOINTING}p${PASSES}.log
+LOG_FILE=${LOG_DIR}/debug_n${MACHINE_RANK}_${MODEL##*/}_${BACKEND}_np${NUM_PROCESSES}z${ZERO_STAGE}c${COMPILE}dc${DEEPCOMPILE}t${ZERO3_TUNING_STRATEGY}E${EAGER}b${BATCH_SIZE}seq${SEQ_LENGTH}g${GRADIENT_ACCUMULATION_STEPS}a${ACTIVATION_CHECKPOINTING}p${PASSES}.log
 echo "Logging to ${LOG_FILE}"
 
-accelerate launch --main_process_ip ${HOST_IP} --main_process_port 12345 \
+accelerate launch --main_process_ip ${HOST_IP} --main_process_port ${MAIN_PROCESS_PORT} \
 --num_machines ${NUM_NODES} --num_processes ${NUM_PROCESSES} --machine_rank ${MACHINE_RANK} \
 --config_file configs/config.yaml \
 verify_loss.py \

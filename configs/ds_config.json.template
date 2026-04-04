@@ -22,7 +22,11 @@
         "free_activation": false,
         "debug_log": {{ debug_log }},
         "sync_before_reduce": {{ sync_before_reduce }},
-        "sync_after_reduce": {{ sync_after_reduce }}
+        "sync_after_reduce": {{ sync_after_reduce }},
+        "zero3_tuning_strategy": "{{ zero3_tuning_strategy }}",
+        "agent_command": {{ agent_command_json }},
+        "agent_max_iterations": {{ agent_max_iterations }},
+        "agent_timeout_sec": {{ agent_timeout_sec }}
     },
     "gradient_accumulation_steps": {{ gradient_accumulation_steps }},
     "gradient_clipping": "auto",

@@ -4,6 +4,8 @@
 # DeepSpeed Team
 
 import argparse
+import json
+import sys
 from jinja2 import Template
 from pathlib import Path
 
@@ -22,6 +24,18 @@ def get_args():
     parser.add_argument('--sync_after_reduce', action='store_true', help='Sync after reduce')
     parser.add_argument('--sync_before_allgather', action='store_true', help='Sync before allgather')
     parser.add_argument('--sync_after_allgather', action='store_true', help='Sync after allgather')
+    parser.add_argument('--zero3_tuning_strategy',
+                        type=str,
+                        choices=['baseline', 'agent'],
+                        default='baseline',
+                        help='ZeRO-3 warmup tuning strategy')
+    parser.add_argument('--agent_backend',
+                        type=str,
+                        choices=['codex'],
+                        default=None,
+                        help='External agent preset to use when zero3_tuning_strategy=agent')
+    parser.add_argument('--agent_max_iterations', type=int, default=3, help='Max tuning iterations for agent mode')
+    parser.add_argument('--agent_timeout_sec', type=int, default=300, help='Per-invocation timeout for agent mode')
                         
     parser.add_argument('--template_file', type=Path, help='Template file')
     parser.add_argument('--output_file', type=Path, help='Output file')
@@ -29,10 +43,28 @@ def get_args():
     return parser.parse_args()
 
 
+def resolve_agent_command_json(args):
+    if args.zero3_tuning_strategy == 'agent' and args.agent_backend is None:
+        raise ValueError("--agent_backend is required when --zero3_tuning_strategy agent is set")
+
+    if args.zero3_tuning_strategy != 'agent' and args.agent_backend is not None:
+        raise ValueError("--agent_backend requires --zero3_tuning_strategy agent")
+
+    if args.agent_backend is None:
+        return "null"
+
+    if args.agent_backend == 'codex':
+        wrapper_path = (Path(__file__).resolve().parent / "codex_agent_wrapper.py").resolve()
+        return json.dumps([sys.executable, str(wrapper_path)])
+
+    raise ValueError(f"Unsupported agent backend: {args.agent_backend}")
+
+
 def main(args):
     with open(args.template_file, 'r') as f:
         template = Template(f.read())
 
+    agent_command_json = resolve_agent_command_json(args)
     with open(args.output_file, 'w') as f:
         f.write(template.render(machine_rank=args.machine_rank,
                                 num_machines=args.num_machines,
@@ -45,7 +77,11 @@ def main(args):
                                 sync_before_reduce=str(args.sync_before_reduce).lower(),
                                 sync_after_reduce=str(args.sync_after_reduce).lower(),
                                 sync_before_allgather=str(args.sync_before_allgather).lower(),
-                                sync_after_allgather=str(args.sync_after_allgather).lower()))
+                                sync_after_allgather=str(args.sync_after_allgather).lower(),
+                                zero3_tuning_strategy=args.zero3_tuning_strategy,
+                                agent_command_json=agent_command_json,
+                                agent_max_iterations=args.agent_max_iterations,
+                                agent_timeout_sec=args.agent_timeout_sec))
 
 if __name__ == '__main__':
     args = get_args()
