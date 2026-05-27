@@ -1,9 +1,14 @@
 import os
 import argparse
+import json
+import platform
+import socket
 import time
+import traceback
 from datetime import datetime
 from contextlib import nullcontext, contextmanager
-from typing import List
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import torch
 from transformers import AutoConfig, AutoModelForCausalLM, enable_full_determinism, set_seed
@@ -34,6 +39,7 @@ def get_args():
     parser.add_argument("--eval", action="store_true")
     parser.add_argument("--dataset_name", type=str, default="wikitext", help="Dataset name for pretraining evaluation")
     parser.add_argument("--dataset_percentage", type=float, default=10.0, help="Percentage of dataset to use (e.g., 10.0 for 10 percent)")
+    parser.add_argument("--dataset_samples", type=int, default=1024, help="Synthetic dataset sample count for dataset_name=synthetic")
     parser.add_argument("--num_layers", type=int, default=0)
     parser.add_argument("--attn_impl", type=str, default="sdpa")
     parser.add_argument("--compile", action="store_true")
@@ -44,6 +50,11 @@ def get_args():
     parser.add_argument("--deterministic", action="store_true")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
     parser.add_argument("--profile_dir", type=str, default=None)
+    parser.add_argument("--profile_summary_output", type=str, default=None)
+    parser.add_argument("--profile_wait_steps", type=int, default=0)
+    parser.add_argument("--profile_warmup_steps", type=int, default=10)
+    parser.add_argument("--profile_active_steps", type=int, default=3)
+    parser.add_argument("--metrics_output", type=str, default=None)
     parser.add_argument("--bench_step", type=int, default=100)
     parser.add_argument("--warmup_step", type=int, default=15)
     parser.add_argument("--zero_stage", type=int, default=3)
@@ -58,6 +69,143 @@ def get_args():
     parser.add_argument("--wandb_tags", type=str, nargs="+", default=[], help="WandB tags for the run")
 
     return parser.parse_args()
+
+
+def write_json(path: Optional[str], payload: Dict[str, Any]) -> None:
+    if not path:
+        return
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    tmp = output.with_suffix(output.suffix + ".tmp")
+    with open(tmp, "w") as f:
+        json.dump(payload, f, indent=2, sort_keys=True)
+        f.write("\n")
+    tmp.replace(output)
+
+
+def rank_from_env() -> int:
+    for name in ("RANK", "LOCAL_RANK", "SLURM_PROCID"):
+        value = os.environ.get(name)
+        if value is not None:
+            try:
+                return int(value)
+            except ValueError:
+                pass
+    return 0
+
+
+def exception_summary(exc: BaseException) -> Dict[str, Any]:
+    tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    lines = [line.rstrip() for line in tb.splitlines() if line.strip()]
+    return {
+        "type": type(exc).__name__,
+        "message": str(exc),
+        "traceback_tail": "\n".join(lines[-24:]),
+    }
+
+
+def classify_fraction(value: Optional[float]) -> str:
+    if value is None:
+        return "unknown"
+    if value >= 0.25:
+        return "high"
+    if value >= 0.10:
+        return "medium"
+    return "low"
+
+
+def classify_imbalance(rank_step_times: List[Dict[str, float]]) -> str:
+    values = [
+        item["avg_step_time_sec"]
+        for item in rank_step_times
+        if item.get("measured_steps", 0) > 0 and item.get("avg_step_time_sec", 0) > 0
+    ]
+    if len(values) < 2:
+        return "unknown"
+    ratio = max(values) / max(min(values), 1e-9)
+    if ratio >= 1.30:
+        return "high"
+    if ratio >= 1.10:
+        return "medium"
+    return "low"
+
+
+def summarize_profile(
+    profiler: Any,
+    active_step_times: List[float],
+    rank_step_times: List[Dict[str, float]],
+    peak_allocated: int,
+    peak_reserved: int,
+    compile_time_sum: float,
+) -> Dict[str, Any]:
+    summary: Dict[str, Any] = {
+        "gpu_idle": "unknown",
+        "rank_imbalance": classify_imbalance(rank_step_times),
+        "visible_nccl_collective_cost": "unknown",
+        "input_h2d_wait": "unknown",
+        "optimizer_tail": "unknown",
+        "allocator_or_memory_pressure": "unknown",
+        "compile_graph_break_signal": "not-measured",
+        "notes": [],
+    }
+
+    if peak_reserved > 0 and peak_allocated > 0:
+        reserved_gap = max(peak_reserved - peak_allocated, 0) / peak_reserved
+        summary["allocator_or_memory_pressure"] = classify_fraction(reserved_gap)
+        summary["allocator_reserved_gap_fraction"] = reserved_gap
+
+    if compile_time_sum:
+        summary["compile_graph_break_signal"] = "unknown"
+
+    if profiler is None:
+        summary["notes"].append("PyTorch profiler was not enabled for this run.")
+        return summary
+
+    try:
+        events = profiler.key_averages()
+    except Exception as exc:  # profiler summarization must not fail training
+        summary["notes"].append(f"Profiler key_averages failed: {type(exc).__name__}: {exc}")
+        return summary
+
+    total_cuda_us = 0.0
+    nccl_us = 0.0
+    copy_us = 0.0
+    optimizer_us = 0.0
+    for event in events:
+        key = event.key.lower()
+        cuda_us = float(getattr(event, "self_cuda_time_total", 0.0) or 0.0)
+        cpu_us = float(getattr(event, "self_cpu_time_total", 0.0) or 0.0)
+        total_cuda_us += cuda_us
+        if "nccl" in key or "all_reduce" in key or "all_gather" in key or "reduce_scatter" in key:
+            nccl_us += cuda_us
+        if "memcpy" in key or "copy_" in key or "aten::to" in key or "_to_copy" in key:
+            copy_us += max(cuda_us, cpu_us)
+        if "adam" in key or "optimizer" in key or "optim" in key:
+            optimizer_us += max(cuda_us, cpu_us)
+
+    wall_us = sum(active_step_times) * 1_000_000.0
+    if wall_us > 0 and total_cuda_us > 0:
+        cuda_wall_fraction = min(total_cuda_us / wall_us, 1.0)
+        summary["cuda_wall_fraction_rank0"] = cuda_wall_fraction
+        if cuda_wall_fraction < 0.35:
+            summary["gpu_idle"] = "high"
+        elif cuda_wall_fraction < 0.65:
+            summary["gpu_idle"] = "medium"
+        else:
+            summary["gpu_idle"] = "low"
+
+    if total_cuda_us > 0:
+        summary["visible_nccl_collective_cost"] = classify_fraction(nccl_us / total_cuda_us)
+        summary["input_h2d_wait"] = classify_fraction(copy_us / total_cuda_us)
+        summary["optimizer_tail"] = classify_fraction(optimizer_us / total_cuda_us)
+        summary["profile_cuda_time_us"] = total_cuda_us
+        summary["profile_nccl_time_us"] = nccl_us
+        summary["profile_copy_time_us"] = copy_us
+        summary["profile_optimizer_time_us"] = optimizer_us
+    else:
+        summary["notes"].append("Profiler collected no CUDA self time on rank 0.")
+
+    return summary
 
 
 def make_schedule(passes: List[str], warmup):
@@ -83,8 +231,7 @@ def make_schedule(passes: List[str], warmup):
     return schedule
 
 
-def main():
-    args = get_args()
+def run_training(args):
     print(args)
 
     if args.passes is not None and "offload_adam_states" in args.passes:
@@ -132,7 +279,8 @@ def main():
         seq_length=args.seq_length,
         accelerator=accelerator,
         batch_size=args.batch_size,
-        is_main_process=accelerator.is_main_process
+        is_main_process=accelerator.is_main_process,
+        dataset_samples=args.dataset_samples,
     )
 
     # Prepare optimizer
@@ -177,6 +325,7 @@ def main():
                 "activation_checkpointing": args.activation_checkpointing,
                 "dataset_name": args.dataset_name,
                 "dataset_percentage": args.dataset_percentage,
+                "dataset_samples": args.dataset_samples,
                 "num_layers": args.num_layers,
                 "attn_impl": args.attn_impl,
                 "compile": args.compile,
@@ -203,21 +352,27 @@ def main():
         if args.compile:
             model = torch.compile(model, backend=args.backend)
 
-    if args.profile_dir:
-        if accelerator.is_main_process and args.profile_dir:
-            os.makedirs(args.profile_dir, exist_ok=True)
-            if args.profile:
-                prof_dir = f"{args.profile_dir}/{exp_name}"
-                os.makedirs(prof_dir, exist_ok=True)
-        accelerator.wait_for_everyone()        
-        
+    prof_dir = None
+    if args.profile:
+        base_profile_dir = Path(args.profile_dir or "profiles")
+        if accelerator.is_main_process:
+            base_profile_dir.mkdir(parents=True, exist_ok=True)
+            prof_dir = str(base_profile_dir / exp_name)
+            os.makedirs(prof_dir, exist_ok=True)
+        accelerator.wait_for_everyone()
+
     do_profile = args.profile and accelerator.is_main_process
     prof_context = torch.profiler.profile(
         activities=[
             torch.profiler.ProfilerActivity.CPU,
             torch.profiler.ProfilerActivity.CUDA,
         ],
-        schedule=torch.profiler.schedule(wait=0, warmup=10*args.gradient_accumulation_steps, active=3, repeat=1),
+        schedule=torch.profiler.schedule(
+            wait=args.profile_wait_steps * args.gradient_accumulation_steps,
+            warmup=args.profile_warmup_steps * args.gradient_accumulation_steps,
+            active=args.profile_active_steps * args.gradient_accumulation_steps,
+            repeat=1,
+        ),
         on_trace_ready=torch.profiler.tensorboard_trace_handler(prof_dir),
     ) if do_profile else nullcontext()
 
@@ -297,6 +452,27 @@ def main():
 
     iter_times = iter_times[args.warmup_step:]
 
+    local_avg_iter_time = sum(iter_times) / len(iter_times) if iter_times else 0.0
+    local_step_stats = torch.tensor(
+        [float(local_avg_iter_time), float(len(iter_times))],
+        dtype=torch.float64,
+        device=device,
+    )
+    try:
+        gathered_step_stats = accelerator.gather(local_step_stats).detach().cpu().reshape(-1, 2).tolist()
+        rank_step_times = [
+            {
+                "rank": index,
+                "avg_step_time_sec": float(values[0]),
+                "measured_steps": int(values[1]),
+            }
+            for index, values in enumerate(gathered_step_stats)
+        ]
+    except Exception as exc:
+        rank_step_times = []
+        if accelerator.is_main_process:
+            print(f"Warning: failed to gather rank timing stats: {type(exc).__name__}: {exc}")
+
     if accelerator.is_main_process:
         compile_time_sum = 0
         compile_time = 0
@@ -304,10 +480,63 @@ def main():
             compile_time = model.get_compile_time()
             compile_time_sum = sum(t for _, _, _, t in compile_time)
 
-        avg_iter_time = sum(iter_times) / len(iter_times) if iter_times else 0
+        avg_iter_time = local_avg_iter_time
+        samples_per_step = args.batch_size * accelerator.num_processes * args.gradient_accumulation_steps
+        tokens_per_step = samples_per_step * args.seq_length
+        samples_per_second = samples_per_step / avg_iter_time if avg_iter_time > 0 else None
+        tokens_per_second = tokens_per_step / avg_iter_time if avg_iter_time > 0 else None
+        cuda_max_allocated = int(torch.cuda.max_memory_allocated()) if torch.cuda.is_available() else 0
+        cuda_allocated = int(torch.cuda.memory_allocated()) if torch.cuda.is_available() else 0
+        cuda_reserved = int(torch.cuda.memory_reserved()) if torch.cuda.is_available() else 0
+        cuda_max_reserved = int(torch.cuda.max_memory_reserved()) if torch.cuda.is_available() else 0
         
-        msg = f"{args.model_name} ds={is_deepspeed} np={accelerator.num_processes} batch_size={args.batch_size} seq={args.seq_length} zero_stage={args.zero_stage} acc={args.gradient_accumulation_steps} ac={args.activation_checkpointing} compile={args.compile} backend={args.backend} deepcompile={is_deepcompile} passes={args.passes} compile_time={compile_time_sum} iteration time: {avg_iter_time:.4f} alloc_mem: {torch.cuda.memory_allocated()} peak_mem: {torch.cuda.max_memory_allocated()}"
+        msg = f"{args.model_name} ds={is_deepspeed} np={accelerator.num_processes} batch_size={args.batch_size} seq={args.seq_length} zero_stage={args.zero_stage} acc={args.gradient_accumulation_steps} ac={args.activation_checkpointing} compile={args.compile} backend={args.backend} deepcompile={is_deepcompile} passes={args.passes} compile_time={compile_time_sum} iteration time: {avg_iter_time:.4f} samples/s: {samples_per_second} tokens/s: {tokens_per_second} alloc_mem: {cuda_allocated} peak_mem: {cuda_max_allocated} reserved_mem: {cuda_reserved} peak_reserved_mem: {cuda_max_reserved}"
         print(msg)
+
+        profile_summary = summarize_profile(
+            prof if do_profile else None,
+            iter_times[: args.profile_active_steps],
+            rank_step_times,
+            cuda_max_allocated,
+            cuda_max_reserved,
+            compile_time_sum,
+        )
+
+        metrics_payload = {
+            "status": "success",
+            "success": True,
+            "error_summary": None,
+            "generated_at": datetime.now().isoformat(),
+            "hostname": socket.gethostname(),
+            "platform": platform.platform(),
+            "model_name": args.model_name,
+            "backend": "deepspeed" if is_deepspeed else "accelerate",
+            "zero_stage": args.zero_stage,
+            "num_processes": accelerator.num_processes,
+            "batch_size_per_gpu": args.batch_size,
+            "gradient_accumulation_steps": args.gradient_accumulation_steps,
+            "seq_length": args.seq_length,
+            "dataset_name": args.dataset_name,
+            "dataset_percentage": args.dataset_percentage,
+            "dataset_samples": args.dataset_samples,
+            "global_samples_per_step": samples_per_step,
+            "global_tokens_per_step": tokens_per_step,
+            "bench_step": args.bench_step,
+            "warmup_step": args.warmup_step,
+            "measured_steps": len(iter_times),
+            "avg_step_time_sec": avg_iter_time,
+            "samples_per_second": samples_per_second,
+            "tokens_per_second": tokens_per_second,
+            "cuda_memory_allocated_bytes": cuda_allocated,
+            "cuda_max_memory_allocated_bytes": cuda_max_allocated,
+            "cuda_memory_reserved_bytes": cuda_reserved,
+            "cuda_max_memory_reserved_bytes": cuda_max_reserved,
+            "compile_time_sum_sec": compile_time_sum,
+            "rank_step_times": rank_step_times,
+            "profile_summary": profile_summary,
+        }
+        write_json(args.metrics_output, metrics_payload)
+        write_json(args.profile_summary_output, profile_summary)
 
         # Log final summary metrics to wandb
         if args.use_wandb:
@@ -320,7 +549,6 @@ def main():
             })
 
         if args.profile_dir:
-            from pathlib import Path
             # Create timestamp if it wasn't created earlier
             if 'timestamp' not in locals():
                 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -345,6 +573,27 @@ def main():
     #     unwrapped_model = accelerator.unwrap_model(model)
     #     unwrapped_model.save_pretrained("fine_tuned_model", save_function=accelerator.save)
     #     tokenizer.save_pretrained("fine_tuned_model")
+
+
+def main():
+    args = get_args()
+    try:
+        run_training(args)
+    except Exception as exc:
+        if rank_from_env() == 0:
+            write_json(args.metrics_output, {
+                "status": "failure",
+                "success": False,
+                "generated_at": datetime.now().isoformat(),
+                "hostname": socket.gethostname(),
+                "platform": platform.platform(),
+                "model_name": args.model_name,
+                "zero_stage": args.zero_stage,
+                "bench_step": args.bench_step,
+                "warmup_step": args.warmup_step,
+                "error_summary": exception_summary(exc),
+            })
+        raise
 
 if __name__ == "__main__":
     torch._dynamo.config.accumulated_cache_size_limit = 256

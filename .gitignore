@@ -6,3 +6,5 @@ __pycache__
 *.pyc
 *.pkl
 results_*
+diagnostic_runs/
+pilot_runs/

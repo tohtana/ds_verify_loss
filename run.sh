@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 NUM_NODES=${NUM_NODES:-1}
 NGPUS_PER_NODE=${NGPUS_PER_NODE:-$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l)}
@@ -8,13 +9,14 @@ BACKEND="deepspeed"
 MODEL="meta-llama/Meta-Llama-3-8B"
 ZERO_STAGE=3
 COMPILE=0
+FP16=0
 PASSES="ALL"
 EXTRA_OPTS=""
 
 EAGER=0
 DEEPCOMPILE=0
 GRADIENT_ACCUMULATION_STEPS=1
-ACTIVATION_CHECKPOINTING=1
+ACTIVATION_CHECKPOINTING=0
 BATCH_SIZE=1
 SEQ_LENGTH=512
 DEBUG_LOG=0
@@ -25,6 +27,7 @@ SYNC_AFTER_ALLGATHER=0
 
 HOST_IP="127.0.0.1"
 MACHINE_RANK=0
+MAIN_PROCESS_PORT=${MAIN_PROCESS_PORT:-12345}
 
 echo "NUM_NODES: ${NUM_NODES} NGPUS_PER_NODE: ${NGPUS_PER_NODE} NUM_PROCESSES: ${NUM_PROCESSES}"
 
@@ -42,26 +45,26 @@ while [[ $# -gt 0 ]]; do
             BACKEND="$2"
             shift 2
             ;;
-        --zero_stage)
+        --zero_stage|--zero-stage)
             ZERO_STAGE="$2"
             shift 2
             ;;
-        --batch_size)
+        --batch_size|--batch-size)
             BATCH_SIZE="$2"
             EXTRA_OPTS="${EXTRA_OPTS} --batch_size $2"
             shift 2
             ;;
-        --seq_length)
+        --seq_length|--seq-length)
             SEQ_LENGTH="$2"
             EXTRA_OPTS="${EXTRA_OPTS} --seq_length $2"
             shift 2
             ;;
-        --gradient_accumulation_steps)
+        --gradient_accumulation_steps|--gradient-accumulation-steps)
             GRADIENT_ACCUMULATION_STEPS="$2"
             EXTRA_OPTS="${EXTRA_OPTS} --gradient_accumulation_steps $2"
             shift 2
             ;;
-        --activation_checkpointing)
+        --activation_checkpointing|--activation-checkpointing)
             ACTIVATION_CHECKPOINTING=1
             EXTRA_OPTS="${EXTRA_OPTS} --activation_checkpointing"
             shift
@@ -85,9 +88,17 @@ while [[ $# -gt 0 ]]; do
             EXTRA_OPTS="${EXTRA_OPTS} $1 $2"
             shift 2
             ;;
-        --model)
+        --model|--model_name|--model-name)
             MODEL="$2"
             shift 2
+            ;;
+        --fp16)
+            FP16=1
+            shift
+            ;;
+        --bf16)
+            FP16=0
+            shift
             ;;
         --debug_log)
             DEBUG_LOG=1
@@ -143,6 +154,7 @@ if [ "${BACKEND}" != "deepspeed" ]; then
 fi
 
 echo "HOST_IP: ${HOST_IP}"
+echo "MAIN_PROCESS_PORT: ${MAIN_PROCESS_PORT}"
 echo "NUM_NODES: ${NUM_NODES}"
 echo "NUM_PROCESSES: ${NUM_PROCESSES}"
 echo "BACKEND: ${BACKEND}"
@@ -192,12 +204,18 @@ if [ "${BACKEND}" == "deepspeed" ]; then
         SYNC_AFTER_ALLGATHER_OPTS="--sync_after_allgather"
     fi
 
+    FP16_OPTS=""
+    if [ "${FP16}" == "1" ]; then
+        FP16_OPTS="--fp16"
+    fi
+
     python generate_conf.py \
         --machine_rank ${MACHINE_RANK} \
         --num_machines ${NUM_NODES} \
         --num_processes ${NUM_PROCESSES} \
         --zero_stage ${ZERO_STAGE} \
         --gradient_accumulation_steps ${GRADIENT_ACCUMULATION_STEPS} \
+        ${FP16_OPTS} \
         ${DEEPCOMPILE_OPTS} ${DEBUG_LOG_OPTS} \
         ${SYNC_BEFORE_REDUCE_OPTS} ${SYNC_AFTER_REDUCE_OPTS} \
         ${SYNC_BEFORE_ALLGATHER_OPTS} ${SYNC_AFTER_ALLGATHER_OPTS} \
@@ -212,7 +230,8 @@ mkdir -p ${LOG_DIR}
 LOG_FILE=${LOG_DIR}/debug_n${MACHINE_RANK}_${MODEL##*/}_${BACKEND}_np${NUM_PROCESSES}z${ZERO_STAGE}c${COMPILE}dc${DEEPCOMPILE}E${EAGER}b${BATCH_SIZE}seq${SEQ_LENGTH}g${GRADIENT_ACCUMULATION_STEPS}a${ACTIVATION_CHECKPOINTING}p${PASSES}.log
 echo "Logging to ${LOG_FILE}"
 
-accelerate launch --main_process_ip ${HOST_IP} --main_process_port 12345 \
+set +e
+accelerate launch --main_process_ip ${HOST_IP} --main_process_port ${MAIN_PROCESS_PORT} \
 --num_machines ${NUM_NODES} --num_processes ${NUM_PROCESSES} --machine_rank ${MACHINE_RANK} \
 --config_file configs/config.yaml \
 verify_loss.py \
@@ -221,3 +240,6 @@ verify_loss.py \
 ${GAS_OPTS} \
 ${EXTRA_OPTS} \
 2>&1 | tee ${LOG_FILE}
+status=${PIPESTATUS[0]}
+set -e
+exit "${status}"

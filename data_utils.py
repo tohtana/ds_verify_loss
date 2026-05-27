@@ -5,11 +5,41 @@ This module handles all dataset-related functionality for the loss verification 
 
 import os
 from typing import Tuple, Any
+import torch
 from datasets import load_dataset, DownloadConfig
 from datasets.utils.logging import disable_progress_bar
 from transformers import AutoTokenizer
+from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
+
+
+class SyntheticTokenDataset(Dataset):
+    """Small deterministic token dataset for launcher and memory smoke tests."""
+
+    def __init__(self, num_samples: int, seq_length: int, vocab_size: int, seed: int = 1234):
+        self.num_samples = num_samples
+        self.seq_length = seq_length
+        self.vocab_size = max(int(vocab_size), 8)
+        generator = torch.Generator()
+        generator.manual_seed(seed)
+        self.input_ids = torch.randint(
+            low=0,
+            high=self.vocab_size,
+            size=(self.num_samples, self.seq_length),
+            dtype=torch.long,
+            generator=generator,
+        )
+        self.attention_mask = torch.ones((self.num_samples, self.seq_length), dtype=torch.long)
+
+    def __len__(self) -> int:
+        return self.num_samples
+
+    def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
+        return {
+            "input_ids": self.input_ids[index],
+            "attention_mask": self.attention_mask[index],
+        }
 
 
 def get_tokenizer(model_name: str, trust_remote_code: bool = True) -> Any:
@@ -43,7 +73,8 @@ def load_and_prepare_dataset(
     seq_length: int,
     accelerator: Any,
     batch_size: int,
-    is_main_process: bool = True
+    is_main_process: bool = True,
+    dataset_samples: int = 1024,
 ) -> Tuple[Any, Any, str]:
     """
     Load and prepare the dataset with tokenization and data loader creation.
@@ -67,6 +98,24 @@ def load_and_prepare_dataset(
     if is_main_process:
         print(f"Loading dataset: {dataset_name} ({dataset_percentage*100:.1f}% of data)...")
     
+    if dataset_name in {"synthetic", "synthetic_tokens", "synthetic-token"}:
+        vocab_size = getattr(tokenizer, "vocab_size", None) or len(tokenizer)
+        sample_count = max(dataset_samples, accelerator.num_processes * batch_size)
+        dataset = SyntheticTokenDataset(
+            num_samples=sample_count,
+            seq_length=seq_length,
+            vocab_size=vocab_size,
+        )
+        if is_main_process:
+            print(f"Synthetic dataset ready: {len(dataset)} examples, seq_length={seq_length}, vocab_size={vocab_size}")
+        sampler = DistributedSampler(
+            dataset,
+            num_replicas=accelerator.num_processes,
+            rank=accelerator.process_index,
+        )
+        data_loader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=0)
+        return dataset, data_loader, "synthetic_tokens"
+
     # Calculate split string based on percentage
     if dataset_percentage >= 1.0:
         split_str = "train"

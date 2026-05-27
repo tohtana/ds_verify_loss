@@ -106,7 +106,8 @@ def generate_bash_script(commands: List[Dict[str, str]], condition_set: str,
     set_description = set_config.get('description', 'No description')
     
     script_lines = [
-        "#!/bin/bash",
+        "#!/usr/bin/env bash",
+        "set -uo pipefail",
         "",
         f"# Generated batch script for condition set: {condition_set}",
         f"# Description: {set_description}",
@@ -154,7 +155,7 @@ def generate_bash_script(commands: List[Dict[str, str]], condition_set: str,
         '    echo "Command: bash ./run.sh ${CONDITIONS[$condition]}" | tee -a "${RESULTS_DIR}/experiment_log.txt"',
         '    ',
         '    # Run the experiment',
-        '    bash ./run.sh ${CONDITIONS[$condition]} 2>&1 | tee "${RESULTS_DIR}/${condition}.log"',
+        '    bash -o pipefail -c "bash ./run.sh ${CONDITIONS[$condition]} 2>&1 | tee \'${RESULTS_DIR}/${condition}.log\'"',
         '    exit_code=$?',
         '    ',
         '    STATUS[$condition]=$exit_code',

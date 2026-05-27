@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -uo pipefail
 
 # Enhanced batch runner with metrics collection
 # This script runs six conditions and collects metrics for analysis
@@ -46,7 +47,7 @@ for condition in "${CONDITION_ORDER[@]}"; do
     echo "Command: bash ./run.sh ${CONDITIONS[$condition]}" | tee -a "${RESULTS_DIR}/experiment_log.txt"
     
     # Run the experiment
-    bash ./run.sh ${CONDITIONS[$condition]} 2>&1 | tee "${RESULTS_DIR}/${condition}.log"
+    bash -o pipefail -c "bash ./run.sh ${CONDITIONS[$condition]} 2>&1 | tee '${RESULTS_DIR}/${condition}.log'"
     exit_code=$?
     
     STATUS[$condition]=$exit_code

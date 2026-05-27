@@ -2,6 +2,30 @@
 
 The scripts in this repository run training using DeepSpeed with different settings. They also plots loss curves and iteration times for comparison.
 
+## Diagnostic Pilot Quickstart
+
+For the diagnostic-first Llama/DeepSpeed pilot, use the short-run wrapper rather
+than the full batch matrix:
+
+```bash
+NGPUS_PER_NODE=4 MAIN_PROCESS_PORT=29531 \
+  scripts/run_diagnostic.sh \
+  --name z3-smoke \
+  --model openlm-research/open_llama_7b_v2 \
+  --zero-stage 3 \
+  --bench-step 8 \
+  --warmup-step 2 \
+  --dataset-name synthetic \
+  --dataset-samples 1024
+```
+
+Add `--profile --profile-warmup-steps 2 --profile-active-steps 2` for a short
+coarse profile. Each run writes logs, metrics, profile summaries, and a
+one-file `report.md` under `diagnostic_runs/<timestamp>-<name>/`.
+
+See [docs/diagnostic_optimization_pilot.md](docs/diagnostic_optimization_pilot.md)
+for the Anyscale Workspace flow and current pilot limitations.
+
 ## Usage
 
 ### 1. Run training
@@ -277,4 +301,3 @@ Install with:
 ```bash
 pip install matplotlib seaborn pandas numpy
 ```
-
