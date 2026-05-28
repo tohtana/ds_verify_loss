@@ -264,6 +264,40 @@ if [ "${BACKEND}" == "deepspeed" ]; then
         FP16_OPTS="--fp16"
     fi
 
+    ZERO_CONFIG_OPTS=(
+        --zero_overlap_comm "${ZERO_OVERLAP_COMM}"
+    )
+    if [ -n "${ZERO_CONTIGUOUS_GRADIENTS}" ]; then
+        ZERO_CONFIG_OPTS+=(--zero_contiguous_gradients "${ZERO_CONTIGUOUS_GRADIENTS}")
+    fi
+    if [ -n "${ZERO_REDUCE_SCATTER}" ]; then
+        ZERO_CONFIG_OPTS+=(--zero_reduce_scatter "${ZERO_REDUCE_SCATTER}")
+    fi
+    if [ -n "${ZERO_ALLGATHER_PARTITIONS}" ]; then
+        ZERO_CONFIG_OPTS+=(--zero_allgather_partitions "${ZERO_ALLGATHER_PARTITIONS}")
+    fi
+    if [ "${ZERO_REDUCE_BUCKET_SIZE}" != "0" ]; then
+        ZERO_CONFIG_OPTS+=(--zero_reduce_bucket_size "${ZERO_REDUCE_BUCKET_SIZE}")
+    fi
+    if [ "${ZERO_ALLGATHER_BUCKET_SIZE}" != "0" ]; then
+        ZERO_CONFIG_OPTS+=(--zero_allgather_bucket_size "${ZERO_ALLGATHER_BUCKET_SIZE}")
+    fi
+    if [ "${ZERO_SUB_GROUP_SIZE}" != "0" ]; then
+        ZERO_CONFIG_OPTS+=(--zero_sub_group_size "${ZERO_SUB_GROUP_SIZE}")
+    fi
+    if [ "${ZERO_STAGE3_PREFETCH_BUCKET_SIZE}" != "0" ]; then
+        ZERO_CONFIG_OPTS+=(--zero_stage3_prefetch_bucket_size "${ZERO_STAGE3_PREFETCH_BUCKET_SIZE}")
+    fi
+    if [ "${ZERO_STAGE3_PARAM_PERSISTENCE_THRESHOLD}" != "-1" ]; then
+        ZERO_CONFIG_OPTS+=(--zero_stage3_param_persistence_threshold "${ZERO_STAGE3_PARAM_PERSISTENCE_THRESHOLD}")
+    fi
+    if [ "${ZERO_STAGE3_MAX_LIVE_PARAMETERS}" != "0" ]; then
+        ZERO_CONFIG_OPTS+=(--zero_stage3_max_live_parameters "${ZERO_STAGE3_MAX_LIVE_PARAMETERS}")
+    fi
+    if [ "${ZERO_STAGE3_MAX_REUSE_DISTANCE}" != "0" ]; then
+        ZERO_CONFIG_OPTS+=(--zero_stage3_max_reuse_distance "${ZERO_STAGE3_MAX_REUSE_DISTANCE}")
+    fi
+
     python generate_conf.py \
         --machine_rank ${MACHINE_RANK} \
         --num_machines ${NUM_NODES} \
@@ -274,17 +308,7 @@ if [ "${BACKEND}" == "deepspeed" ]; then
         ${DEEPCOMPILE_OPTS} ${DEBUG_LOG_OPTS} \
         ${SYNC_BEFORE_REDUCE_OPTS} ${SYNC_AFTER_REDUCE_OPTS} \
         ${SYNC_BEFORE_ALLGATHER_OPTS} ${SYNC_AFTER_ALLGATHER_OPTS} \
-        --zero_overlap_comm "${ZERO_OVERLAP_COMM}" \
-        --zero_contiguous_gradients "${ZERO_CONTIGUOUS_GRADIENTS}" \
-        --zero_reduce_scatter "${ZERO_REDUCE_SCATTER}" \
-        --zero_allgather_partitions "${ZERO_ALLGATHER_PARTITIONS}" \
-        --zero_reduce_bucket_size "${ZERO_REDUCE_BUCKET_SIZE}" \
-        --zero_allgather_bucket_size "${ZERO_ALLGATHER_BUCKET_SIZE}" \
-        --zero_sub_group_size "${ZERO_SUB_GROUP_SIZE}" \
-        --zero_stage3_prefetch_bucket_size "${ZERO_STAGE3_PREFETCH_BUCKET_SIZE}" \
-        --zero_stage3_param_persistence_threshold "${ZERO_STAGE3_PARAM_PERSISTENCE_THRESHOLD}" \
-        --zero_stage3_max_live_parameters "${ZERO_STAGE3_MAX_LIVE_PARAMETERS}" \
-        --zero_stage3_max_reuse_distance "${ZERO_STAGE3_MAX_REUSE_DISTANCE}" \
+        "${ZERO_CONFIG_OPTS[@]}" \
         --template_file configs/ds_config.json.template \
         --output_file configs/ds_config.json
 fi
