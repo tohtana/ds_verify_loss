@@ -35,6 +35,8 @@ ZERO_STAGE3_PREFETCH_BUCKET_SIZE=0
 ZERO_STAGE3_PARAM_PERSISTENCE_THRESHOLD=-1
 ZERO_STAGE3_MAX_LIVE_PARAMETERS=0
 ZERO_STAGE3_MAX_REUSE_DISTANCE=0
+ZERO_STAGE3_OFFLOAD_PARAM_DEVICE=""
+ZERO_STAGE3_OFFLOAD_PARAM_PIN_MEMORY=true
 
 HOST_IP="127.0.0.1"
 MACHINE_RANK=0
@@ -175,6 +177,18 @@ while [[ $# -gt 0 ]]; do
             ZERO_STAGE3_MAX_REUSE_DISTANCE="$2"
             shift 2
             ;;
+        --zero_stage3_offload_param_device|--zero-stage3-offload-param-device)
+            ZERO_STAGE3_OFFLOAD_PARAM_DEVICE="$2"
+            shift 2
+            ;;
+        --zero_stage3_offload_param_pin_memory|--zero-stage3-offload-param-pin-memory)
+            ZERO_STAGE3_OFFLOAD_PARAM_PIN_MEMORY="$2"
+            shift 2
+            ;;
+        --no_zero_stage3_offload_param_pin_memory|--no-zero-stage3-offload-param-pin-memory)
+            ZERO_STAGE3_OFFLOAD_PARAM_PIN_MEMORY=false
+            shift
+            ;;
         *)
             # Check if the next argument looks like a value (doesn't start with --)
             if [[ $# -gt 1 && ! "$2" =~ ^-- ]]; then
@@ -216,6 +230,8 @@ echo "BACKEND: ${BACKEND}"
 echo "ZERO_STAGE: ${ZERO_STAGE}"
 echo "MODEL: ${MODEL}"
 echo "GRADIENT_ACCUMULATION_STEPS: ${GRADIENT_ACCUMULATION_STEPS}"
+echo "ZERO_STAGE3_OFFLOAD_PARAM_DEVICE: ${ZERO_STAGE3_OFFLOAD_PARAM_DEVICE:-none}"
+echo "ZERO_STAGE3_OFFLOAD_PARAM_PIN_MEMORY: ${ZERO_STAGE3_OFFLOAD_PARAM_PIN_MEMORY}"
 echo "EXTRA_OPTS: ${EXTRA_OPTS}"
 
 python generate_conf.py \
@@ -296,6 +312,12 @@ if [ "${BACKEND}" == "deepspeed" ]; then
     fi
     if [ "${ZERO_STAGE3_MAX_REUSE_DISTANCE}" != "0" ]; then
         ZERO_CONFIG_OPTS+=(--zero_stage3_max_reuse_distance "${ZERO_STAGE3_MAX_REUSE_DISTANCE}")
+    fi
+    if [ -n "${ZERO_STAGE3_OFFLOAD_PARAM_DEVICE}" ]; then
+        ZERO_CONFIG_OPTS+=(
+            --zero_stage3_offload_param_device "${ZERO_STAGE3_OFFLOAD_PARAM_DEVICE}"
+            --zero_stage3_offload_param_pin_memory "${ZERO_STAGE3_OFFLOAD_PARAM_PIN_MEMORY}"
+        )
     fi
 
     python generate_conf.py \

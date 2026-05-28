@@ -52,6 +52,13 @@
         ,
         "stage3_max_reuse_distance": {{ zero_stage3_max_reuse_distance }}
         {%- endif %}
+        {%- if zero_stage3_offload_param_device %}
+        ,
+        "offload_param": {
+            "device": "{{ zero_stage3_offload_param_device }}",
+            "pin_memory": {{ zero_stage3_offload_param_pin_memory }}
+        }
+        {%- endif %}
     },
     "compile": {
         "deepcompile": {{ deepcompile }},

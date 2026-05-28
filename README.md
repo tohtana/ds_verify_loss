@@ -215,6 +215,8 @@ The following parameters can be configured through command line arguments or env
 | `--passes` | `ALL` | Compilation passes to use |
 | `--eager` | `false` | Use eager execution mode |
 | `--offload_opt_states` | `false` | Offload optimizer states to CPU |
+| `--zero_stage3_offload_param_device` | unset | Enable ZeRO-3 parameter offload to `cpu` or `nvme` in the generated DeepSpeed config |
+| `--zero_stage3_offload_param_pin_memory` | `true` | Pin host memory when ZeRO-3 parameter offload is enabled |
 
 #### Memory and Performance
 | Parameter | Default | Description |

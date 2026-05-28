@@ -28,6 +28,12 @@ Options:
   --profile-active-steps N            Default: 2.
   --fp16                              Generate an fp16 DeepSpeed config.
   --no-activation-checkpointing       Do not pass --activation_checkpointing.
+  --zero-stage3-offload-param-device DEVICE
+                                      Enable ZeRO-3 parameter offload; e.g. cpu.
+  --zero-stage3-offload-param-pin-memory BOOL
+                                      Default: true when parameter offload is enabled.
+  --no-zero-stage3-offload-param-pin-memory
+                                      Disable pinned host memory for parameter offload.
   --next-command CMD                  Suggested follow-up command for report.md.
   -h, --help                          Show this help.
 
@@ -60,6 +66,8 @@ profile_warmup_steps="2"
 profile_active_steps="2"
 fp16=0
 activation_checkpointing=1
+zero_stage3_offload_param_device=""
+zero_stage3_offload_param_pin_memory="true"
 next_command=""
 extra_args=()
 
@@ -87,6 +95,12 @@ while [[ $# -gt 0 ]]; do
     --fp16) fp16=1; shift ;;
     --bf16) fp16=0; shift ;;
     --no-activation-checkpointing) activation_checkpointing=0; shift ;;
+    --zero-stage3-offload-param-device|--zero_stage3_offload_param_device)
+      zero_stage3_offload_param_device="$2"; shift 2 ;;
+    --zero-stage3-offload-param-pin-memory|--zero_stage3_offload_param_pin_memory)
+      zero_stage3_offload_param_pin_memory="$2"; shift 2 ;;
+    --no-zero-stage3-offload-param-pin-memory|--no_zero_stage3_offload_param_pin_memory)
+      zero_stage3_offload_param_pin_memory="false"; shift ;;
     --next-command) next_command="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     --) shift; extra_args+=("$@"); break ;;
@@ -170,6 +184,12 @@ fi
 if [[ "$fp16" == "1" ]]; then
   run_args+=(--fp16)
 fi
+if [[ -n "$zero_stage3_offload_param_device" ]]; then
+  run_args+=(
+    --zero_stage3_offload_param_device "$zero_stage3_offload_param_device"
+    --zero_stage3_offload_param_pin_memory "$zero_stage3_offload_param_pin_memory"
+  )
+fi
 if [[ "$profile" == "1" ]]; then
   run_args+=(
     --profile
@@ -190,6 +210,19 @@ bash -o pipefail -c '"$@" 2>&1 | tee "$0"' "$train_log" "${cmd[@]}"
 status=$?
 set -e
 
+deepspeed_config_file="${results_dir}/ds_config.json"
+accelerate_config_file="${results_dir}/accelerate_config.yaml"
+if [[ -f configs/ds_config.json ]]; then
+  cp configs/ds_config.json "$deepspeed_config_file"
+else
+  deepspeed_config_file=""
+fi
+if [[ -f configs/config.yaml ]]; then
+  cp configs/config.yaml "$accelerate_config_file"
+else
+  accelerate_config_file=""
+fi
+
 python scripts/generate_diagnostic_report.py \
   --results-dir "$results_dir" \
   --exit-code "$status" \
@@ -198,6 +231,8 @@ python scripts/generate_diagnostic_report.py \
   --metrics-file "$metrics_file" \
   --profile-summary-file "$profile_summary_file" \
   --environment-file "$environment_file" \
+  --deepspeed-config-file "$deepspeed_config_file" \
+  --accelerate-config-file "$accelerate_config_file" \
   --next-command "${next_command:-${cmd[*]}}"
 
 echo "Report: ${results_dir}/report.md"

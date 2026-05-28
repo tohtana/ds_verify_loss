@@ -23,13 +23,13 @@ PROFILE_FIELDS = [
 
 
 def read_text(path: Path | None) -> str:
-    if not path or not path.exists():
+    if not path or not path.is_file():
         return ""
     return path.read_text(errors="replace")
 
 
 def read_json(path: Path | None) -> dict[str, Any]:
-    if not path or not path.exists():
+    if not path or not path.is_file():
         return {}
     try:
         return json.loads(path.read_text(errors="replace"))
@@ -81,6 +81,9 @@ def write_report(
     environment: dict[str, Any],
     log_text: str,
     next_command: str,
+    deepspeed_config: dict[str, Any],
+    deepspeed_config_path: Path | None,
+    accelerate_config_path: Path | None,
 ) -> dict[str, Any]:
     metrics_success = metrics.get("success")
     status = "success" if exit_code == 0 and metrics_success is not False else "failure"
@@ -116,6 +119,22 @@ def write_report(
         if environment.get("nvidia_smi"):
             f.write("\n```text\n")
             f.write(str(environment["nvidia_smi"]).strip()[:4000] + "\n")
+            f.write("```\n")
+        f.write("\n")
+
+        f.write("## Config Snapshot\n\n")
+        if deepspeed_config_path and deepspeed_config_path.exists():
+            f.write(f"- DeepSpeed config: `{deepspeed_config_path}`\n")
+        else:
+            f.write("- DeepSpeed config: `not captured`\n")
+        if accelerate_config_path and accelerate_config_path.exists():
+            f.write(f"- Accelerate config: `{accelerate_config_path}`\n")
+        else:
+            f.write("- Accelerate config: `not captured`\n")
+        zero_config = deepspeed_config.get("zero_optimization")
+        if isinstance(zero_config, dict):
+            f.write("\n```json\n")
+            f.write(json.dumps({"zero_optimization": zero_config}, indent=2, sort_keys=True)[:6000] + "\n")
             f.write("```\n")
         f.write("\n")
 
@@ -168,6 +187,8 @@ def write_report(
         "metrics_path": str(results_dir / "metrics.json"),
         "profile_summary": profile,
         "error_summary": error_summary,
+        "deepspeed_config_path": str(deepspeed_config_path) if deepspeed_config_path else "",
+        "accelerate_config_path": str(accelerate_config_path) if accelerate_config_path else "",
     }
     (results_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
     return summary
@@ -182,6 +203,8 @@ def main() -> int:
     parser.add_argument("--metrics-file", type=Path)
     parser.add_argument("--profile-summary-file", type=Path)
     parser.add_argument("--environment-file", type=Path)
+    parser.add_argument("--deepspeed-config-file", type=Path)
+    parser.add_argument("--accelerate-config-file", type=Path)
     parser.add_argument("--next-command", default="")
     args = parser.parse_args()
 
@@ -191,10 +214,13 @@ def main() -> int:
     environment_file = args.environment_file or results_dir / "environment.json"
     log_file = args.log_file or results_dir / "train.log"
     command_file = args.command_file or results_dir / "command.txt"
+    deepspeed_config_file = args.deepspeed_config_file or results_dir / "ds_config.json"
+    accelerate_config_file = args.accelerate_config_file or results_dir / "accelerate_config.yaml"
 
     metrics = read_json(metrics_file)
     profile = read_json(profile_file) or metrics.get("profile_summary") or {}
     environment = read_json(environment_file)
+    deepspeed_config = read_json(deepspeed_config_file)
     log_text = read_text(log_file)
     command = read_text(command_file)
     next_command = args.next_command or command
@@ -208,6 +234,9 @@ def main() -> int:
         environment=environment,
         log_text=log_text,
         next_command=next_command,
+        deepspeed_config=deepspeed_config,
+        deepspeed_config_path=deepspeed_config_file if deepspeed_config_file.is_file() else None,
+        accelerate_config_path=accelerate_config_file if accelerate_config_file.is_file() else None,
     )
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0
