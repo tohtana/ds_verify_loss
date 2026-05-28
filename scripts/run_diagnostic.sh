@@ -35,6 +35,8 @@ Options:
   --no-zero-stage3-offload-param-pin-memory
                                       Disable pinned host memory for parameter offload.
   --chunked-causal-lm-loss-tokens N   Compute causal-LM loss in token chunks.
+  --chunked-causal-lm-loss-empty-cache
+                                      Empty CUDA cache before chunked loss upcasts.
   --next-command CMD                  Suggested follow-up command for report.md.
   -h, --help                          Show this help.
 
@@ -70,6 +72,7 @@ activation_checkpointing=1
 zero_stage3_offload_param_device=""
 zero_stage3_offload_param_pin_memory="true"
 chunked_causal_lm_loss_tokens="0"
+chunked_causal_lm_loss_empty_cache="0"
 next_command=""
 extra_args=()
 
@@ -105,6 +108,8 @@ while [[ $# -gt 0 ]]; do
       zero_stage3_offload_param_pin_memory="false"; shift ;;
     --chunked-causal-lm-loss-tokens|--chunked_causal_lm_loss_tokens)
       chunked_causal_lm_loss_tokens="$2"; shift 2 ;;
+    --chunked-causal-lm-loss-empty-cache|--chunked_causal_lm_loss_empty_cache)
+      chunked_causal_lm_loss_empty_cache="1"; shift ;;
     --next-command) next_command="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     --) shift; extra_args+=("$@"); break ;;
@@ -196,6 +201,9 @@ if [[ -n "$zero_stage3_offload_param_device" ]]; then
 fi
 if [[ "$chunked_causal_lm_loss_tokens" != "0" ]]; then
   run_args+=(--chunked_causal_lm_loss_tokens "$chunked_causal_lm_loss_tokens")
+fi
+if [[ "$chunked_causal_lm_loss_empty_cache" == "1" ]]; then
+  run_args+=(--chunked_causal_lm_loss_empty_cache)
 fi
 if [[ "$profile" == "1" ]]; then
   run_args+=(

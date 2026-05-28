@@ -90,6 +90,9 @@ Qwen-style causal-LM loss can be computed with
 upcast itself. This leaves the model, labels, and shifted cross-entropy
 semantics unchanged, but upcasts `[batch, chunk, vocab]` logits at a time
 instead of materializing one full fp32 `[batch, seq, vocab]` logits tensor.
+When allocator cache pressure is the remaining failure mode, add
+`--chunked-causal-lm-loss-empty-cache` to release unallocated cached blocks
+before those chunk upcasts.
 
 ## Still Missing Before Full Optimization Rounds
 

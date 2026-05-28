@@ -32,6 +32,7 @@ def chunked_causal_lm_loss(
     logits: torch.Tensor,
     labels: torch.Tensor,
     chunk_tokens: int,
+    empty_cache_before_chunks: bool = False,
     ignore_index: int = -100,
 ) -> torch.Tensor:
     """Compute the same shifted causal-LM CE loss while upcasting logits by chunks."""
@@ -52,6 +53,9 @@ def chunked_causal_lm_loss(
 
     # Match Transformers' shifted ForCausalLMLoss while avoiding one full
     # [batch, seq, vocab] fp32 allocation.
+    if empty_cache_before_chunks and torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     for start in range(0, logits.shape[1] - 1, chunk_tokens):
         end = min(start + chunk_tokens, logits.shape[1] - 1)
         chunk_logits = logits[:, start:end, :].float()
@@ -97,6 +101,11 @@ def get_args():
         type=int,
         default=0,
         help="If >0, compute shifted causal-LM cross entropy in token chunks of this size.",
+    )
+    parser.add_argument(
+        "--chunked_causal_lm_loss_empty_cache",
+        action="store_true",
+        help="Call torch.cuda.empty_cache() before chunked causal-LM loss upcasts.",
     )
     parser.add_argument("--profile_wait_steps", type=int, default=0)
     parser.add_argument("--profile_warmup_steps", type=int, default=10)
@@ -380,6 +389,7 @@ def run_training(args):
                 "backend": args.backend,
                 "offload_opt_states": args.offload_opt_states,
                 "chunked_causal_lm_loss_tokens": args.chunked_causal_lm_loss_tokens,
+                "chunked_causal_lm_loss_empty_cache": args.chunked_causal_lm_loss_empty_cache,
                 "zero_stage": args.zero_stage,
                 "is_deepspeed": is_deepspeed,
                 "is_deepcompile": is_deepcompile,  # Experimental setting
@@ -434,7 +444,11 @@ def run_training(args):
     iter_times = []
 
     if args.chunked_causal_lm_loss_tokens > 0 and accelerator.is_main_process:
-        print(f"Using chunked causal LM loss with chunk_tokens={args.chunked_causal_lm_loss_tokens}")
+        print(
+            "Using chunked causal LM loss with "
+            f"chunk_tokens={args.chunked_causal_lm_loss_tokens} "
+            f"empty_cache={args.chunked_causal_lm_loss_empty_cache}"
+        )
     
     # Loss averaging for logging
     losses = []
@@ -458,6 +472,7 @@ def run_training(args):
                             outputs.logits,
                             input_ids,
                             args.chunked_causal_lm_loss_tokens,
+                            empty_cache_before_chunks=args.chunked_causal_lm_loss_empty_cache,
                         )
                     else:
                         outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids, use_cache=False)
@@ -576,6 +591,7 @@ def run_training(args):
             "gradient_accumulation_steps": args.gradient_accumulation_steps,
             "seq_length": args.seq_length,
             "chunked_causal_lm_loss_tokens": args.chunked_causal_lm_loss_tokens,
+            "chunked_causal_lm_loss_empty_cache": args.chunked_causal_lm_loss_empty_cache,
             "dataset_name": args.dataset_name,
             "dataset_percentage": args.dataset_percentage,
             "dataset_samples": args.dataset_samples,
@@ -652,6 +668,7 @@ def main():
                 "bench_step": args.bench_step,
                 "warmup_step": args.warmup_step,
                 "chunked_causal_lm_loss_tokens": args.chunked_causal_lm_loss_tokens,
+                "chunked_causal_lm_loss_empty_cache": args.chunked_causal_lm_loss_empty_cache,
                 "error_summary": exception_summary(exc),
             })
         raise

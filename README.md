@@ -228,6 +228,7 @@ The following parameters can be configured through command line arguments or env
 | `--bench_step` | `100` | Steps for benchmarking |
 | `--warmup_step` | `15` | Warmup steps before benchmarking |
 | `--chunked_causal_lm_loss_tokens` | `0` | If >0, compute shifted causal-LM cross entropy in token chunks to avoid a full fp32 logits upcast |
+| `--chunked_causal_lm_loss_empty_cache` | `false` | Empty the CUDA cache before chunked causal-LM loss upcasts |
 
 #### Data and Evaluation
 | Parameter | Default | Description |
