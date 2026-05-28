@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import torch
+import torch.nn.functional as F
 from transformers import AutoConfig, AutoModelForCausalLM, enable_full_determinism, set_seed
 from accelerate import Accelerator
 import wandb
@@ -25,6 +26,46 @@ def use_default_device(device):
         yield
     finally:
         torch.set_default_device(prev_device)
+
+
+def chunked_causal_lm_loss(
+    logits: torch.Tensor,
+    labels: torch.Tensor,
+    chunk_tokens: int,
+    ignore_index: int = -100,
+) -> torch.Tensor:
+    """Compute the same shifted causal-LM CE loss while upcasting logits by chunks."""
+    if chunk_tokens <= 0:
+        raise ValueError(f"chunk_tokens must be positive, got {chunk_tokens}")
+    if logits.ndim != 3:
+        raise ValueError(f"expected logits with shape [batch, seq, vocab], got {tuple(logits.shape)}")
+    if labels.ndim != 2:
+        raise ValueError(f"expected labels with shape [batch, seq], got {tuple(labels.shape)}")
+    if logits.shape[:2] != labels.shape:
+        raise ValueError(f"logits/labels shape mismatch: {tuple(logits.shape)} vs {tuple(labels.shape)}")
+    if logits.shape[1] < 2:
+        raise ValueError("causal LM loss requires sequence length >= 2")
+
+    vocab_size = logits.shape[-1]
+    total_loss = logits.new_zeros(())
+    total_items = logits.new_zeros((), dtype=torch.float32)
+
+    # Match Transformers' shifted ForCausalLMLoss while avoiding one full
+    # [batch, seq, vocab] fp32 allocation.
+    for start in range(0, logits.shape[1] - 1, chunk_tokens):
+        end = min(start + chunk_tokens, logits.shape[1] - 1)
+        chunk_logits = logits[:, start:end, :].float()
+        chunk_labels = labels[:, start + 1 : end + 1].to(chunk_logits.device)
+        flat_labels = chunk_labels.reshape(-1)
+        total_loss = total_loss + F.cross_entropy(
+            chunk_logits.reshape(-1, vocab_size),
+            flat_labels,
+            ignore_index=ignore_index,
+            reduction="sum",
+        )
+        total_items = total_items + (flat_labels != ignore_index).sum().to(total_items.dtype)
+
+    return total_loss / total_items.clamp_min(1.0)
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -51,6 +92,12 @@ def get_args():
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
     parser.add_argument("--profile_dir", type=str, default=None)
     parser.add_argument("--profile_summary_output", type=str, default=None)
+    parser.add_argument(
+        "--chunked_causal_lm_loss_tokens",
+        type=int,
+        default=0,
+        help="If >0, compute shifted causal-LM cross entropy in token chunks of this size.",
+    )
     parser.add_argument("--profile_wait_steps", type=int, default=0)
     parser.add_argument("--profile_warmup_steps", type=int, default=10)
     parser.add_argument("--profile_active_steps", type=int, default=3)
@@ -332,6 +379,7 @@ def run_training(args):
                 "passes": args.passes,
                 "backend": args.backend,
                 "offload_opt_states": args.offload_opt_states,
+                "chunked_causal_lm_loss_tokens": args.chunked_causal_lm_loss_tokens,
                 "zero_stage": args.zero_stage,
                 "is_deepspeed": is_deepspeed,
                 "is_deepcompile": is_deepcompile,  # Experimental setting
@@ -384,6 +432,9 @@ def run_training(args):
 
     global_step = 0
     iter_times = []
+
+    if args.chunked_causal_lm_loss_tokens > 0 and accelerator.is_main_process:
+        print(f"Using chunked causal LM loss with chunk_tokens={args.chunked_causal_lm_loss_tokens}")
     
     # Loss averaging for logging
     losses = []
@@ -401,8 +452,16 @@ def run_training(args):
                 attention_mask = batch['attention_mask'].to(device)
 
                 with acc_context(model):
-                    outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids, use_cache=False)
-                    loss = outputs.loss
+                    if args.chunked_causal_lm_loss_tokens > 0:
+                        outputs = model(input_ids=input_ids, attention_mask=attention_mask, use_cache=False)
+                        loss = chunked_causal_lm_loss(
+                            outputs.logits,
+                            input_ids,
+                            args.chunked_causal_lm_loss_tokens,
+                        )
+                    else:
+                        outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids, use_cache=False)
+                        loss = outputs.loss
 
                     update_step = (is_deepspeed and model.is_gradient_accumulation_boundary()) \
                         or (not is_deepspeed and accelerator.sync_gradients)
@@ -516,6 +575,7 @@ def run_training(args):
             "batch_size_per_gpu": args.batch_size,
             "gradient_accumulation_steps": args.gradient_accumulation_steps,
             "seq_length": args.seq_length,
+            "chunked_causal_lm_loss_tokens": args.chunked_causal_lm_loss_tokens,
             "dataset_name": args.dataset_name,
             "dataset_percentage": args.dataset_percentage,
             "dataset_samples": args.dataset_samples,
@@ -591,6 +651,7 @@ def main():
                 "zero_stage": args.zero_stage,
                 "bench_step": args.bench_step,
                 "warmup_step": args.warmup_step,
+                "chunked_causal_lm_loss_tokens": args.chunked_causal_lm_loss_tokens,
                 "error_summary": exception_summary(exc),
             })
         raise

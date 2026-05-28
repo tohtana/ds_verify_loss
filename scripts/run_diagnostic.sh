@@ -34,6 +34,7 @@ Options:
                                       Default: true when parameter offload is enabled.
   --no-zero-stage3-offload-param-pin-memory
                                       Disable pinned host memory for parameter offload.
+  --chunked-causal-lm-loss-tokens N   Compute causal-LM loss in token chunks.
   --next-command CMD                  Suggested follow-up command for report.md.
   -h, --help                          Show this help.
 
@@ -68,6 +69,7 @@ fp16=0
 activation_checkpointing=1
 zero_stage3_offload_param_device=""
 zero_stage3_offload_param_pin_memory="true"
+chunked_causal_lm_loss_tokens="0"
 next_command=""
 extra_args=()
 
@@ -101,6 +103,8 @@ while [[ $# -gt 0 ]]; do
       zero_stage3_offload_param_pin_memory="$2"; shift 2 ;;
     --no-zero-stage3-offload-param-pin-memory|--no_zero_stage3_offload_param_pin_memory)
       zero_stage3_offload_param_pin_memory="false"; shift ;;
+    --chunked-causal-lm-loss-tokens|--chunked_causal_lm_loss_tokens)
+      chunked_causal_lm_loss_tokens="$2"; shift 2 ;;
     --next-command) next_command="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     --) shift; extra_args+=("$@"); break ;;
@@ -189,6 +193,9 @@ if [[ -n "$zero_stage3_offload_param_device" ]]; then
     --zero_stage3_offload_param_device "$zero_stage3_offload_param_device"
     --zero_stage3_offload_param_pin_memory "$zero_stage3_offload_param_pin_memory"
   )
+fi
+if [[ "$chunked_causal_lm_loss_tokens" != "0" ]]; then
+  run_args+=(--chunked_causal_lm_loss_tokens "$chunked_causal_lm_loss_tokens")
 fi
 if [[ "$profile" == "1" ]]; then
   run_args+=(

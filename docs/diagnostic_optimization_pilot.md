@@ -85,6 +85,12 @@ Every diagnostic run should produce:
 - `profile_summary.json`: coarse diagnosis when `--profile` is enabled.
 - `report.md`: one-file handoff for the next agent.
 
+Qwen-style causal-LM loss can be computed with
+`--chunked-causal-lm-loss-tokens N` when the diagnostic target is the loss
+upcast itself. This leaves the model, labels, and shifted cross-entropy
+semantics unchanged, but upcasts `[batch, chunk, vocab]` logits at a time
+instead of materializing one full fp32 `[batch, seq, vocab]` logits tensor.
+
 ## Still Missing Before Full Optimization Rounds
 
 - A reproducible Anyscale Job form for final accepted evidence.
