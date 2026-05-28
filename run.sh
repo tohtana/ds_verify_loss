@@ -37,6 +37,8 @@ ZERO_STAGE3_MAX_LIVE_PARAMETERS=0
 ZERO_STAGE3_MAX_REUSE_DISTANCE=0
 ZERO_STAGE3_OFFLOAD_PARAM_DEVICE=""
 ZERO_STAGE3_OFFLOAD_PARAM_PIN_MEMORY=true
+ZERO_OFFLOAD_OPTIMIZER_DEVICE=""
+ZERO_OFFLOAD_OPTIMIZER_PIN_MEMORY=true
 CHUNKED_CAUSAL_LM_LOSS_TOKENS=0
 CHUNKED_CAUSAL_LM_LOSS_EMPTY_CACHE=0
 CHUNKED_CAUSAL_LM_LOSS_DEVICE="cuda"
@@ -193,6 +195,24 @@ while [[ $# -gt 0 ]]; do
             ZERO_STAGE3_OFFLOAD_PARAM_PIN_MEMORY=false
             shift
             ;;
+        --zero_offload_optimizer_device|--zero-offload-optimizer-device)
+            ZERO_OFFLOAD_OPTIMIZER_DEVICE="$2"
+            EXTRA_OPTS="${EXTRA_OPTS} --offload_opt_states"
+            shift 2
+            ;;
+        --zero_offload_optimizer_pin_memory|--zero-offload-optimizer-pin-memory)
+            ZERO_OFFLOAD_OPTIMIZER_PIN_MEMORY="$2"
+            shift 2
+            ;;
+        --no_zero_offload_optimizer_pin_memory|--no-zero-offload-optimizer-pin-memory)
+            ZERO_OFFLOAD_OPTIMIZER_PIN_MEMORY=false
+            shift
+            ;;
+        --offload_opt_states|--offload-opt-states)
+            ZERO_OFFLOAD_OPTIMIZER_DEVICE=cpu
+            EXTRA_OPTS="${EXTRA_OPTS} --offload_opt_states"
+            shift
+            ;;
         --chunked_causal_lm_loss_tokens|--chunked-causal-lm-loss-tokens)
             CHUNKED_CAUSAL_LM_LOSS_TOKENS="$2"
             EXTRA_OPTS="${EXTRA_OPTS} --chunked_causal_lm_loss_tokens $2"
@@ -345,6 +365,12 @@ if [ "${BACKEND}" == "deepspeed" ]; then
         ZERO_CONFIG_OPTS+=(
             --zero_stage3_offload_param_device "${ZERO_STAGE3_OFFLOAD_PARAM_DEVICE}"
             --zero_stage3_offload_param_pin_memory "${ZERO_STAGE3_OFFLOAD_PARAM_PIN_MEMORY}"
+        )
+    fi
+    if [ -n "${ZERO_OFFLOAD_OPTIMIZER_DEVICE}" ]; then
+        ZERO_CONFIG_OPTS+=(
+            --zero_offload_optimizer_device "${ZERO_OFFLOAD_OPTIMIZER_DEVICE}"
+            --zero_offload_optimizer_pin_memory "${ZERO_OFFLOAD_OPTIMIZER_PIN_MEMORY}"
         )
     fi
 

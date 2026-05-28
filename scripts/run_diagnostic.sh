@@ -34,6 +34,13 @@ Options:
                                       Default: true when parameter offload is enabled.
   --no-zero-stage3-offload-param-pin-memory
                                       Disable pinned host memory for parameter offload.
+  --zero-offload-optimizer-device DEVICE
+                                      Enable ZeRO optimizer offload; e.g. cpu.
+  --zero-offload-optimizer-pin-memory BOOL
+                                      Default: true when optimizer offload is enabled.
+  --no-zero-offload-optimizer-pin-memory
+                                      Disable pinned host memory for optimizer offload.
+  --offload-opt-states                Compatibility alias for optimizer CPU offload.
   --chunked-causal-lm-loss-tokens N   Compute causal-LM loss in token chunks.
   --chunked-causal-lm-loss-empty-cache
                                       Empty CUDA cache before chunked loss upcasts.
@@ -73,6 +80,9 @@ fp16=0
 activation_checkpointing=1
 zero_stage3_offload_param_device=""
 zero_stage3_offload_param_pin_memory="true"
+zero_offload_optimizer_device=""
+zero_offload_optimizer_pin_memory="true"
+offload_opt_states=0
 chunked_causal_lm_loss_tokens="0"
 chunked_causal_lm_loss_empty_cache="0"
 chunked_causal_lm_loss_device="cuda"
@@ -110,6 +120,14 @@ while [[ $# -gt 0 ]]; do
       zero_stage3_offload_param_pin_memory="$2"; shift 2 ;;
     --no-zero-stage3-offload-param-pin-memory|--no_zero_stage3_offload_param_pin_memory)
       zero_stage3_offload_param_pin_memory="false"; shift ;;
+    --zero-offload-optimizer-device|--zero_offload_optimizer_device)
+      zero_offload_optimizer_device="$2"; offload_opt_states=1; shift 2 ;;
+    --zero-offload-optimizer-pin-memory|--zero_offload_optimizer_pin_memory)
+      zero_offload_optimizer_pin_memory="$2"; shift 2 ;;
+    --no-zero-offload-optimizer-pin-memory|--no_zero_offload_optimizer_pin_memory)
+      zero_offload_optimizer_pin_memory="false"; shift ;;
+    --offload-opt-states|--offload_opt_states)
+      zero_offload_optimizer_device="cpu"; offload_opt_states=1; shift ;;
     --chunked-causal-lm-loss-tokens|--chunked_causal_lm_loss_tokens)
       chunked_causal_lm_loss_tokens="$2"; shift 2 ;;
     --chunked-causal-lm-loss-empty-cache|--chunked_causal_lm_loss_empty_cache)
@@ -206,6 +224,15 @@ if [[ -n "$zero_stage3_offload_param_device" ]]; then
     --zero_stage3_offload_param_device "$zero_stage3_offload_param_device"
     --zero_stage3_offload_param_pin_memory "$zero_stage3_offload_param_pin_memory"
   )
+fi
+if [[ -n "$zero_offload_optimizer_device" ]]; then
+  run_args+=(
+    --zero_offload_optimizer_device "$zero_offload_optimizer_device"
+    --zero_offload_optimizer_pin_memory "$zero_offload_optimizer_pin_memory"
+  )
+fi
+if [[ "$offload_opt_states" == "1" ]]; then
+  run_args+=(--offload_opt_states)
 fi
 if [[ "$chunked_causal_lm_loss_tokens" != "0" ]]; then
   run_args+=(--chunked_causal_lm_loss_tokens "$chunked_causal_lm_loss_tokens")

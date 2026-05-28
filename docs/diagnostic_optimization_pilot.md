@@ -77,7 +77,8 @@ Every diagnostic run should produce:
 - `command.txt`: exact training command.
 - `environment.json`: Python, package, CUDA, and `nvidia-smi` context.
 - `ds_config.json`: generated DeepSpeed config snapshot, including
-  `zero_optimization.offload_param` when parameter offload is enabled.
+  `zero_optimization.offload_param` when parameter offload is enabled and
+  `zero_optimization.offload_optimizer` when optimizer offload is enabled.
 - `accelerate_config.yaml`: generated Accelerate config snapshot.
 - `train.log`: captured stdout/stderr.
 - `metrics.json`: avg step time, samples/s, tokens/s, CUDA allocated and

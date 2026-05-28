@@ -59,6 +59,13 @@
             "pin_memory": {{ zero_stage3_offload_param_pin_memory }}
         }
         {%- endif %}
+        {%- if zero_offload_optimizer_device %}
+        ,
+        "offload_optimizer": {
+            "device": "{{ zero_offload_optimizer_device }}",
+            "pin_memory": {{ zero_offload_optimizer_pin_memory }}
+        }
+        {%- endif %}
     },
     "compile": {
         "deepcompile": {{ deepcompile }},

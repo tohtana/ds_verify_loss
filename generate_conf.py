@@ -45,6 +45,18 @@ def get_args():
         default='true',
         help='Pin host memory for ZeRO-3 parameter offload.',
     )
+    parser.add_argument(
+        '--zero_offload_optimizer_device',
+        choices=['cpu', 'nvme'],
+        default='',
+        help='Enable ZeRO optimizer offload to the selected device.',
+    )
+    parser.add_argument(
+        '--zero_offload_optimizer_pin_memory',
+        choices=['true', 'false'],
+        default='true',
+        help='Pin host memory for ZeRO optimizer offload.',
+    )
                         
     parser.add_argument('--template_file', type=Path, help='Template file')
     parser.add_argument('--output_file', type=Path, help='Output file')
@@ -81,7 +93,9 @@ def main(args):
                                 zero_stage3_max_live_parameters=args.zero_stage3_max_live_parameters,
                                 zero_stage3_max_reuse_distance=args.zero_stage3_max_reuse_distance,
                                 zero_stage3_offload_param_device=args.zero_stage3_offload_param_device,
-                                zero_stage3_offload_param_pin_memory=args.zero_stage3_offload_param_pin_memory))
+                                zero_stage3_offload_param_pin_memory=args.zero_stage3_offload_param_pin_memory,
+                                zero_offload_optimizer_device=args.zero_offload_optimizer_device,
+                                zero_offload_optimizer_pin_memory=args.zero_offload_optimizer_pin_memory))
 
 if __name__ == '__main__':
     args = get_args()
