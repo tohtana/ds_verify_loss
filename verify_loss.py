@@ -33,6 +33,7 @@ def chunked_causal_lm_loss(
     labels: torch.Tensor,
     chunk_tokens: int,
     empty_cache_before_chunks: bool = False,
+    loss_device: str = "cuda",
     ignore_index: int = -100,
 ) -> torch.Tensor:
     """Compute the same shifted causal-LM CE loss while upcasting logits by chunks."""
@@ -46,20 +47,28 @@ def chunked_causal_lm_loss(
         raise ValueError(f"logits/labels shape mismatch: {tuple(logits.shape)} vs {tuple(labels.shape)}")
     if logits.shape[1] < 2:
         raise ValueError("causal LM loss requires sequence length >= 2")
+    if loss_device not in {"cuda", "cpu"}:
+        raise ValueError(f"loss_device must be 'cuda' or 'cpu', got {loss_device!r}")
 
     vocab_size = logits.shape[-1]
-    total_loss = logits.new_zeros(())
-    total_items = logits.new_zeros((), dtype=torch.float32)
+    reduction_device = torch.device("cpu") if loss_device == "cpu" else logits.device
+    total_loss = torch.zeros((), dtype=torch.float32, device=reduction_device)
+    total_items = torch.zeros((), dtype=torch.float32, device=reduction_device)
 
     # Match Transformers' shifted ForCausalLMLoss while avoiding one full
     # [batch, seq, vocab] fp32 allocation.
-    if empty_cache_before_chunks and torch.cuda.is_available():
+    if empty_cache_before_chunks and logits.is_cuda:
         torch.cuda.empty_cache()
 
     for start in range(0, logits.shape[1] - 1, chunk_tokens):
         end = min(start + chunk_tokens, logits.shape[1] - 1)
-        chunk_logits = logits[:, start:end, :].float()
-        chunk_labels = labels[:, start + 1 : end + 1].to(chunk_logits.device)
+        chunk_logits = logits[:, start:end, :]
+        if loss_device == "cpu":
+            chunk_logits = chunk_logits.to(device="cpu", dtype=torch.float32)
+            chunk_labels = labels[:, start + 1 : end + 1].to("cpu")
+        else:
+            chunk_logits = chunk_logits.float()
+            chunk_labels = labels[:, start + 1 : end + 1].to(chunk_logits.device)
         flat_labels = chunk_labels.reshape(-1)
         total_loss = total_loss + F.cross_entropy(
             chunk_logits.reshape(-1, vocab_size),
@@ -106,6 +115,12 @@ def get_args():
         "--chunked_causal_lm_loss_empty_cache",
         action="store_true",
         help="Call torch.cuda.empty_cache() before chunked causal-LM loss upcasts.",
+    )
+    parser.add_argument(
+        "--chunked_causal_lm_loss_device",
+        choices=("cuda", "cpu"),
+        default="cuda",
+        help="Device used for chunked causal-LM cross entropy.",
     )
     parser.add_argument("--profile_wait_steps", type=int, default=0)
     parser.add_argument("--profile_warmup_steps", type=int, default=10)
@@ -390,6 +405,7 @@ def run_training(args):
                 "offload_opt_states": args.offload_opt_states,
                 "chunked_causal_lm_loss_tokens": args.chunked_causal_lm_loss_tokens,
                 "chunked_causal_lm_loss_empty_cache": args.chunked_causal_lm_loss_empty_cache,
+                "chunked_causal_lm_loss_device": args.chunked_causal_lm_loss_device,
                 "zero_stage": args.zero_stage,
                 "is_deepspeed": is_deepspeed,
                 "is_deepcompile": is_deepcompile,  # Experimental setting
@@ -447,7 +463,8 @@ def run_training(args):
         print(
             "Using chunked causal LM loss with "
             f"chunk_tokens={args.chunked_causal_lm_loss_tokens} "
-            f"empty_cache={args.chunked_causal_lm_loss_empty_cache}"
+            f"empty_cache={args.chunked_causal_lm_loss_empty_cache} "
+            f"loss_device={args.chunked_causal_lm_loss_device}"
         )
     
     # Loss averaging for logging
@@ -473,6 +490,7 @@ def run_training(args):
                             input_ids,
                             args.chunked_causal_lm_loss_tokens,
                             empty_cache_before_chunks=args.chunked_causal_lm_loss_empty_cache,
+                            loss_device=args.chunked_causal_lm_loss_device,
                         )
                     else:
                         outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids, use_cache=False)
@@ -592,6 +610,7 @@ def run_training(args):
             "seq_length": args.seq_length,
             "chunked_causal_lm_loss_tokens": args.chunked_causal_lm_loss_tokens,
             "chunked_causal_lm_loss_empty_cache": args.chunked_causal_lm_loss_empty_cache,
+            "chunked_causal_lm_loss_device": args.chunked_causal_lm_loss_device,
             "dataset_name": args.dataset_name,
             "dataset_percentage": args.dataset_percentage,
             "dataset_samples": args.dataset_samples,
@@ -669,6 +688,7 @@ def main():
                 "warmup_step": args.warmup_step,
                 "chunked_causal_lm_loss_tokens": args.chunked_causal_lm_loss_tokens,
                 "chunked_causal_lm_loss_empty_cache": args.chunked_causal_lm_loss_empty_cache,
+                "chunked_causal_lm_loss_device": args.chunked_causal_lm_loss_device,
                 "error_summary": exception_summary(exc),
             })
         raise

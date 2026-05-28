@@ -93,6 +93,9 @@ instead of materializing one full fp32 `[batch, seq, vocab]` logits tensor.
 When allocator cache pressure is the remaining failure mode, add
 `--chunked-causal-lm-loss-empty-cache` to release unallocated cached blocks
 before those chunk upcasts.
+If the GPU-side chunk allocation itself remains impossible, use
+`--chunked-causal-lm-loss-device cpu` to run the fp32 chunked cross entropy on
+CPU while preserving the same shifted CE formula.
 
 ## Still Missing Before Full Optimization Rounds
 

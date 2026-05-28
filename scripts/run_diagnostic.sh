@@ -37,6 +37,7 @@ Options:
   --chunked-causal-lm-loss-tokens N   Compute causal-LM loss in token chunks.
   --chunked-causal-lm-loss-empty-cache
                                       Empty CUDA cache before chunked loss upcasts.
+  --chunked-causal-lm-loss-device DEV Device for chunked CE: cuda or cpu.
   --next-command CMD                  Suggested follow-up command for report.md.
   -h, --help                          Show this help.
 
@@ -73,6 +74,7 @@ zero_stage3_offload_param_device=""
 zero_stage3_offload_param_pin_memory="true"
 chunked_causal_lm_loss_tokens="0"
 chunked_causal_lm_loss_empty_cache="0"
+chunked_causal_lm_loss_device="cuda"
 next_command=""
 extra_args=()
 
@@ -110,6 +112,8 @@ while [[ $# -gt 0 ]]; do
       chunked_causal_lm_loss_tokens="$2"; shift 2 ;;
     --chunked-causal-lm-loss-empty-cache|--chunked_causal_lm_loss_empty_cache)
       chunked_causal_lm_loss_empty_cache="1"; shift ;;
+    --chunked-causal-lm-loss-device|--chunked_causal_lm_loss_device)
+      chunked_causal_lm_loss_device="$2"; shift 2 ;;
     --next-command) next_command="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     --) shift; extra_args+=("$@"); break ;;
@@ -204,6 +208,9 @@ if [[ "$chunked_causal_lm_loss_tokens" != "0" ]]; then
 fi
 if [[ "$chunked_causal_lm_loss_empty_cache" == "1" ]]; then
   run_args+=(--chunked_causal_lm_loss_empty_cache)
+fi
+if [[ "$chunked_causal_lm_loss_device" != "cuda" ]]; then
+  run_args+=(--chunked_causal_lm_loss_device "$chunked_causal_lm_loss_device")
 fi
 if [[ "$profile" == "1" ]]; then
   run_args+=(
