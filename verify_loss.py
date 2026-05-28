@@ -28,6 +28,24 @@ def use_default_device(device):
         torch.set_default_device(prev_device)
 
 
+@contextmanager
+def gathered_zero_parameters(module: torch.nn.Module):
+    """Gather ZeRO-3 sharded parameters for a small scoped module call."""
+    params = list(module.parameters(recurse=False))
+    if not params or not any(hasattr(param, "ds_id") for param in params):
+        yield
+        return
+
+    try:
+        import deepspeed
+    except ImportError:
+        yield
+        return
+
+    with deepspeed.zero.GatheredParameters(params, modifier_rank=None):
+        yield
+
+
 def chunked_causal_lm_loss(
     logits: torch.Tensor,
     labels: torch.Tensor,
@@ -128,18 +146,20 @@ def chunked_lm_head_loss_backward(
     for start in range(0, last_start, chunk_tokens):
         end = min(start + chunk_tokens, last_start)
         chunk_hidden = hidden_states[:, start:end, :]
-        chunk_logits = lm_head(chunk_hidden).float()
-        chunk_labels = input_ids[:, start + 1 : end + 1].to(chunk_logits.device)
-        loss_sum = F.cross_entropy(
-            chunk_logits.reshape(-1, chunk_logits.shape[-1]),
-            chunk_labels.reshape(-1),
-            ignore_index=ignore_index,
-            reduction="sum",
-        )
-        chunk_loss = loss_sum / total_items
-        total_loss_value = total_loss_value + chunk_loss.detach()
-        accelerator.backward(chunk_loss, retain_graph=end < last_start)
-        del chunk_hidden, chunk_logits, chunk_labels, loss_sum, chunk_loss
+        with gathered_zero_parameters(lm_head):
+            chunk_logits = lm_head(chunk_hidden).float()
+            chunk_labels = input_ids[:, start + 1 : end + 1].to(chunk_logits.device)
+            loss_sum = F.cross_entropy(
+                chunk_logits.reshape(-1, chunk_logits.shape[-1]),
+                chunk_labels.reshape(-1),
+                ignore_index=ignore_index,
+                reduction="sum",
+            )
+            chunk_loss = loss_sum / total_items
+            total_loss_value = total_loss_value + chunk_loss.detach()
+            accelerator.backward(chunk_loss, retain_graph=end < last_start)
+            del chunk_logits, chunk_labels, loss_sum, chunk_loss
+        del chunk_hidden
 
     return total_loss_value
 
