@@ -24,6 +24,17 @@ SYNC_BEFORE_REDUCE=0
 SYNC_AFTER_REDUCE=0
 SYNC_BEFORE_ALLGATHER=0
 SYNC_AFTER_ALLGATHER=0
+ZERO_OVERLAP_COMM=true
+ZERO_CONTIGUOUS_GRADIENTS=""
+ZERO_REDUCE_SCATTER=""
+ZERO_ALLGATHER_PARTITIONS=""
+ZERO_REDUCE_BUCKET_SIZE=0
+ZERO_ALLGATHER_BUCKET_SIZE=0
+ZERO_SUB_GROUP_SIZE=0
+ZERO_STAGE3_PREFETCH_BUCKET_SIZE=0
+ZERO_STAGE3_PARAM_PERSISTENCE_THRESHOLD=-1
+ZERO_STAGE3_MAX_LIVE_PARAMETERS=0
+ZERO_STAGE3_MAX_REUSE_DISTANCE=0
 
 HOST_IP="127.0.0.1"
 MACHINE_RANK=0
@@ -119,6 +130,50 @@ while [[ $# -gt 0 ]]; do
         --sync_after_allgather)
             SYNC_AFTER_ALLGATHER=1
             shift
+            ;;
+        --zero_overlap_comm|--zero-overlap-comm)
+            ZERO_OVERLAP_COMM="$2"
+            shift 2
+            ;;
+        --zero_contiguous_gradients|--zero-contiguous-gradients)
+            ZERO_CONTIGUOUS_GRADIENTS="$2"
+            shift 2
+            ;;
+        --zero_reduce_scatter|--zero-reduce-scatter)
+            ZERO_REDUCE_SCATTER="$2"
+            shift 2
+            ;;
+        --zero_allgather_partitions|--zero-allgather-partitions)
+            ZERO_ALLGATHER_PARTITIONS="$2"
+            shift 2
+            ;;
+        --zero_reduce_bucket_size|--zero-reduce-bucket-size)
+            ZERO_REDUCE_BUCKET_SIZE="$2"
+            shift 2
+            ;;
+        --zero_allgather_bucket_size|--zero-allgather-bucket-size)
+            ZERO_ALLGATHER_BUCKET_SIZE="$2"
+            shift 2
+            ;;
+        --zero_sub_group_size|--zero-sub-group-size)
+            ZERO_SUB_GROUP_SIZE="$2"
+            shift 2
+            ;;
+        --zero_stage3_prefetch_bucket_size|--zero-stage3-prefetch-bucket-size)
+            ZERO_STAGE3_PREFETCH_BUCKET_SIZE="$2"
+            shift 2
+            ;;
+        --zero_stage3_param_persistence_threshold|--zero-stage3-param-persistence-threshold)
+            ZERO_STAGE3_PARAM_PERSISTENCE_THRESHOLD="$2"
+            shift 2
+            ;;
+        --zero_stage3_max_live_parameters|--zero-stage3-max-live-parameters)
+            ZERO_STAGE3_MAX_LIVE_PARAMETERS="$2"
+            shift 2
+            ;;
+        --zero_stage3_max_reuse_distance|--zero-stage3-max-reuse-distance)
+            ZERO_STAGE3_MAX_REUSE_DISTANCE="$2"
+            shift 2
             ;;
         *)
             # Check if the next argument looks like a value (doesn't start with --)
@@ -219,6 +274,17 @@ if [ "${BACKEND}" == "deepspeed" ]; then
         ${DEEPCOMPILE_OPTS} ${DEBUG_LOG_OPTS} \
         ${SYNC_BEFORE_REDUCE_OPTS} ${SYNC_AFTER_REDUCE_OPTS} \
         ${SYNC_BEFORE_ALLGATHER_OPTS} ${SYNC_AFTER_ALLGATHER_OPTS} \
+        --zero_overlap_comm "${ZERO_OVERLAP_COMM}" \
+        --zero_contiguous_gradients "${ZERO_CONTIGUOUS_GRADIENTS}" \
+        --zero_reduce_scatter "${ZERO_REDUCE_SCATTER}" \
+        --zero_allgather_partitions "${ZERO_ALLGATHER_PARTITIONS}" \
+        --zero_reduce_bucket_size "${ZERO_REDUCE_BUCKET_SIZE}" \
+        --zero_allgather_bucket_size "${ZERO_ALLGATHER_BUCKET_SIZE}" \
+        --zero_sub_group_size "${ZERO_SUB_GROUP_SIZE}" \
+        --zero_stage3_prefetch_bucket_size "${ZERO_STAGE3_PREFETCH_BUCKET_SIZE}" \
+        --zero_stage3_param_persistence_threshold "${ZERO_STAGE3_PARAM_PERSISTENCE_THRESHOLD}" \
+        --zero_stage3_max_live_parameters "${ZERO_STAGE3_MAX_LIVE_PARAMETERS}" \
+        --zero_stage3_max_reuse_distance "${ZERO_STAGE3_MAX_REUSE_DISTANCE}" \
         --template_file configs/ds_config.json.template \
         --output_file configs/ds_config.json
 fi

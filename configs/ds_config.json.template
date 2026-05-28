@@ -11,7 +11,47 @@
     {% endif %}
     "zero_optimization": {
         "stage": {{ zero_stage }},
-        "overlap_comm": true
+        "overlap_comm": {{ zero_overlap_comm }}
+        {%- if zero_contiguous_gradients %}
+        ,
+        "contiguous_gradients": {{ zero_contiguous_gradients }}
+        {%- endif %}
+        {%- if zero_reduce_scatter %}
+        ,
+        "reduce_scatter": {{ zero_reduce_scatter }}
+        {%- endif %}
+        {%- if zero_allgather_partitions %}
+        ,
+        "allgather_partitions": {{ zero_allgather_partitions }}
+        {%- endif %}
+        {%- if zero_reduce_bucket_size %}
+        ,
+        "reduce_bucket_size": {{ zero_reduce_bucket_size }}
+        {%- endif %}
+        {%- if zero_allgather_bucket_size %}
+        ,
+        "allgather_bucket_size": {{ zero_allgather_bucket_size }}
+        {%- endif %}
+        {%- if zero_sub_group_size %}
+        ,
+        "sub_group_size": {{ zero_sub_group_size }}
+        {%- endif %}
+        {%- if zero_stage3_prefetch_bucket_size %}
+        ,
+        "stage3_prefetch_bucket_size": {{ zero_stage3_prefetch_bucket_size }}
+        {%- endif %}
+        {%- if zero_stage3_param_persistence_threshold >= 0 %}
+        ,
+        "stage3_param_persistence_threshold": {{ zero_stage3_param_persistence_threshold }}
+        {%- endif %}
+        {%- if zero_stage3_max_live_parameters %}
+        ,
+        "stage3_max_live_parameters": {{ zero_stage3_max_live_parameters }}
+        {%- endif %}
+        {%- if zero_stage3_max_reuse_distance %}
+        ,
+        "stage3_max_reuse_distance": {{ zero_stage3_max_reuse_distance }}
+        {%- endif %}
     },
     "compile": {
         "deepcompile": {{ deepcompile }},

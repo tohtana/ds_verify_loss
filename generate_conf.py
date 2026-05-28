@@ -22,6 +22,17 @@ def get_args():
     parser.add_argument('--sync_after_reduce', action='store_true', help='Sync after reduce')
     parser.add_argument('--sync_before_allgather', action='store_true', help='Sync before allgather')
     parser.add_argument('--sync_after_allgather', action='store_true', help='Sync after allgather')
+    parser.add_argument('--zero_overlap_comm', type=str, choices=['true', 'false'], default='true')
+    parser.add_argument('--zero_contiguous_gradients', type=str, choices=['true', 'false'], default='')
+    parser.add_argument('--zero_reduce_scatter', type=str, choices=['true', 'false'], default='')
+    parser.add_argument('--zero_allgather_partitions', type=str, choices=['true', 'false'], default='')
+    parser.add_argument('--zero_reduce_bucket_size', type=int, default=0)
+    parser.add_argument('--zero_allgather_bucket_size', type=int, default=0)
+    parser.add_argument('--zero_sub_group_size', type=int, default=0)
+    parser.add_argument('--zero_stage3_prefetch_bucket_size', type=int, default=0)
+    parser.add_argument('--zero_stage3_param_persistence_threshold', type=int, default=-1)
+    parser.add_argument('--zero_stage3_max_live_parameters', type=int, default=0)
+    parser.add_argument('--zero_stage3_max_reuse_distance', type=int, default=0)
                         
     parser.add_argument('--template_file', type=Path, help='Template file')
     parser.add_argument('--output_file', type=Path, help='Output file')
@@ -45,7 +56,18 @@ def main(args):
                                 sync_before_reduce=str(args.sync_before_reduce).lower(),
                                 sync_after_reduce=str(args.sync_after_reduce).lower(),
                                 sync_before_allgather=str(args.sync_before_allgather).lower(),
-                                sync_after_allgather=str(args.sync_after_allgather).lower()))
+                                sync_after_allgather=str(args.sync_after_allgather).lower(),
+                                zero_overlap_comm=args.zero_overlap_comm,
+                                zero_contiguous_gradients=args.zero_contiguous_gradients,
+                                zero_reduce_scatter=args.zero_reduce_scatter,
+                                zero_allgather_partitions=args.zero_allgather_partitions,
+                                zero_reduce_bucket_size=args.zero_reduce_bucket_size,
+                                zero_allgather_bucket_size=args.zero_allgather_bucket_size,
+                                zero_sub_group_size=args.zero_sub_group_size,
+                                zero_stage3_prefetch_bucket_size=args.zero_stage3_prefetch_bucket_size,
+                                zero_stage3_param_persistence_threshold=args.zero_stage3_param_persistence_threshold,
+                                zero_stage3_max_live_parameters=args.zero_stage3_max_live_parameters,
+                                zero_stage3_max_reuse_distance=args.zero_stage3_max_reuse_distance))
 
 if __name__ == '__main__':
     args = get_args()
