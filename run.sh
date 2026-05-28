@@ -40,6 +40,7 @@ ZERO_STAGE3_OFFLOAD_PARAM_PIN_MEMORY=true
 CHUNKED_CAUSAL_LM_LOSS_TOKENS=0
 CHUNKED_CAUSAL_LM_LOSS_EMPTY_CACHE=0
 CHUNKED_CAUSAL_LM_LOSS_DEVICE="cuda"
+CHUNKED_LM_HEAD_LOSS_TOKENS=0
 
 HOST_IP="127.0.0.1"
 MACHINE_RANK=0
@@ -207,6 +208,11 @@ while [[ $# -gt 0 ]]; do
             EXTRA_OPTS="${EXTRA_OPTS} --chunked_causal_lm_loss_device $2"
             shift 2
             ;;
+        --chunked_lm_head_loss_tokens|--chunked-lm-head-loss-tokens)
+            CHUNKED_LM_HEAD_LOSS_TOKENS="$2"
+            EXTRA_OPTS="${EXTRA_OPTS} --chunked_lm_head_loss_tokens $2"
+            shift 2
+            ;;
         *)
             # Check if the next argument looks like a value (doesn't start with --)
             if [[ $# -gt 1 && ! "$2" =~ ^-- ]]; then
@@ -253,6 +259,7 @@ echo "ZERO_STAGE3_OFFLOAD_PARAM_PIN_MEMORY: ${ZERO_STAGE3_OFFLOAD_PARAM_PIN_MEMO
 echo "CHUNKED_CAUSAL_LM_LOSS_TOKENS: ${CHUNKED_CAUSAL_LM_LOSS_TOKENS}"
 echo "CHUNKED_CAUSAL_LM_LOSS_EMPTY_CACHE: ${CHUNKED_CAUSAL_LM_LOSS_EMPTY_CACHE}"
 echo "CHUNKED_CAUSAL_LM_LOSS_DEVICE: ${CHUNKED_CAUSAL_LM_LOSS_DEVICE}"
+echo "CHUNKED_LM_HEAD_LOSS_TOKENS: ${CHUNKED_LM_HEAD_LOSS_TOKENS}"
 echo "EXTRA_OPTS: ${EXTRA_OPTS}"
 
 python generate_conf.py \

@@ -80,6 +80,69 @@ def chunked_causal_lm_loss(
 
     return total_loss / total_items.clamp_min(1.0)
 
+
+def chunked_lm_head_loss_backward(
+    model: torch.nn.Module,
+    accelerator: Accelerator,
+    input_ids: torch.Tensor,
+    attention_mask: torch.Tensor,
+    chunk_tokens: int,
+    ignore_index: int = -100,
+) -> torch.Tensor:
+    """Backprop causal-LM CE in sequence chunks without full logits gradients."""
+    if chunk_tokens <= 0:
+        raise ValueError(f"chunk_tokens must be positive, got {chunk_tokens}")
+
+    module = getattr(model, "module", model)
+    transformer = getattr(module, "model", None)
+    lm_head = getattr(module, "lm_head", None)
+    if transformer is None or lm_head is None:
+        raise ValueError(
+            "chunked LM-head loss requires a Hugging Face causal LM with "
+            "`.model` and `.lm_head` attributes"
+        )
+
+    outputs = transformer(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        use_cache=False,
+        return_dict=True,
+    )
+    hidden_states = outputs.last_hidden_state if hasattr(outputs, "last_hidden_state") else outputs[0]
+    if hidden_states.shape[:2] != input_ids.shape:
+        raise ValueError(
+            "hidden/input shape mismatch: "
+            f"{tuple(hidden_states.shape[:2])} vs {tuple(input_ids.shape)}"
+        )
+    if hidden_states.shape[1] < 2:
+        raise ValueError("causal LM loss requires sequence length >= 2")
+
+    shift_labels = input_ids[:, 1:]
+    total_items = (shift_labels != ignore_index).sum().clamp_min(1).to(
+        device=hidden_states.device,
+        dtype=torch.float32,
+    )
+    total_loss_value = torch.zeros((), dtype=torch.float32, device=hidden_states.device)
+    last_start = hidden_states.shape[1] - 1
+
+    for start in range(0, last_start, chunk_tokens):
+        end = min(start + chunk_tokens, last_start)
+        chunk_hidden = hidden_states[:, start:end, :]
+        chunk_logits = lm_head(chunk_hidden).float()
+        chunk_labels = input_ids[:, start + 1 : end + 1].to(chunk_logits.device)
+        loss_sum = F.cross_entropy(
+            chunk_logits.reshape(-1, chunk_logits.shape[-1]),
+            chunk_labels.reshape(-1),
+            ignore_index=ignore_index,
+            reduction="sum",
+        )
+        chunk_loss = loss_sum / total_items
+        total_loss_value = total_loss_value + chunk_loss.detach()
+        accelerator.backward(chunk_loss, retain_graph=end < last_start)
+        del chunk_hidden, chunk_logits, chunk_labels, loss_sum, chunk_loss
+
+    return total_loss_value
+
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", type=str, default="meta-llama/Llama-2-7b-hf")
@@ -121,6 +184,15 @@ def get_args():
         choices=("cuda", "cpu"),
         default="cuda",
         help="Device used for chunked causal-LM cross entropy.",
+    )
+    parser.add_argument(
+        "--chunked_lm_head_loss_tokens",
+        type=int,
+        default=0,
+        help=(
+            "If >0, run the transformer once, then apply lm_head and backward "
+            "causal-LM CE in token chunks to avoid full logits/grad tensors."
+        ),
     )
     parser.add_argument("--profile_wait_steps", type=int, default=0)
     parser.add_argument("--profile_warmup_steps", type=int, default=10)
@@ -304,6 +376,11 @@ def make_schedule(passes: List[str], warmup):
 
 def run_training(args):
     print(args)
+    if args.chunked_causal_lm_loss_tokens > 0 and args.chunked_lm_head_loss_tokens > 0:
+        raise ValueError(
+            "--chunked_causal_lm_loss_tokens and --chunked_lm_head_loss_tokens "
+            "are mutually exclusive"
+        )
 
     if args.passes is not None and "offload_adam_states" in args.passes:
         os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
@@ -406,6 +483,7 @@ def run_training(args):
                 "chunked_causal_lm_loss_tokens": args.chunked_causal_lm_loss_tokens,
                 "chunked_causal_lm_loss_empty_cache": args.chunked_causal_lm_loss_empty_cache,
                 "chunked_causal_lm_loss_device": args.chunked_causal_lm_loss_device,
+                "chunked_lm_head_loss_tokens": args.chunked_lm_head_loss_tokens,
                 "zero_stage": args.zero_stage,
                 "is_deepspeed": is_deepspeed,
                 "is_deepcompile": is_deepcompile,  # Experimental setting
@@ -466,6 +544,11 @@ def run_training(args):
             f"empty_cache={args.chunked_causal_lm_loss_empty_cache} "
             f"loss_device={args.chunked_causal_lm_loss_device}"
         )
+    if args.chunked_lm_head_loss_tokens > 0 and accelerator.is_main_process:
+        print(
+            "Using chunked LM-head loss/backward with "
+            f"chunk_tokens={args.chunked_lm_head_loss_tokens}"
+        )
     
     # Loss averaging for logging
     losses = []
@@ -483,7 +566,17 @@ def run_training(args):
                 attention_mask = batch['attention_mask'].to(device)
 
                 with acc_context(model):
-                    if args.chunked_causal_lm_loss_tokens > 0:
+                    update_step = (is_deepspeed and model.is_gradient_accumulation_boundary()) \
+                        or (not is_deepspeed and accelerator.sync_gradients)
+                    if args.chunked_lm_head_loss_tokens > 0:
+                        loss = chunked_lm_head_loss_backward(
+                            model,
+                            accelerator,
+                            input_ids,
+                            attention_mask,
+                            args.chunked_lm_head_loss_tokens,
+                        )
+                    elif args.chunked_causal_lm_loss_tokens > 0:
                         outputs = model(input_ids=input_ids, attention_mask=attention_mask, use_cache=False)
                         loss = chunked_causal_lm_loss(
                             outputs.logits,
@@ -496,9 +589,8 @@ def run_training(args):
                         outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids, use_cache=False)
                         loss = outputs.loss
 
-                    update_step = (is_deepspeed and model.is_gradient_accumulation_boundary()) \
-                        or (not is_deepspeed and accelerator.sync_gradients)
-                    accelerator.backward(loss)
+                    if args.chunked_lm_head_loss_tokens <= 0:
+                        accelerator.backward(loss)
                     optimizer.step()
                     optimizer.zero_grad()
                     global_step += 1
