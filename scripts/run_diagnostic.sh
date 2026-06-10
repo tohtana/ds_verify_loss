@@ -26,6 +26,12 @@ Options:
   --profile-wait-steps N              Default: 0.
   --profile-warmup-steps N            Default: 2.
   --profile-active-steps N            Default: 2.
+  --profile-ranks RANKS               Comma-separated ranks or "all". Default: 0.
+  --profile-trace-name NAME           Base worker name for Chrome trace files.
+  --profile-record-shapes             Enable PyTorch profiler shape recording.
+  --profile-memory                    Enable PyTorch profiler memory recording.
+  --profile-with-stack                Enable PyTorch profiler stack recording.
+  --profile-sync-each-step            Diagnostic-only CUDA sync per profiled step.
   --fp16                              Generate an fp16 DeepSpeed config.
   --no-activation-checkpointing       Do not pass --activation_checkpointing.
   --zero-stage3-offload-param-device DEVICE
@@ -76,6 +82,12 @@ profile=0
 profile_wait_steps="0"
 profile_warmup_steps="2"
 profile_active_steps="2"
+profile_ranks="0"
+profile_trace_name=""
+profile_record_shapes=0
+profile_memory=0
+profile_with_stack=0
+profile_sync_each_step=0
 fp16=0
 activation_checkpointing=1
 zero_stage3_offload_param_device=""
@@ -111,6 +123,12 @@ while [[ $# -gt 0 ]]; do
     --profile-wait-steps|--profile_wait_steps) profile_wait_steps="$2"; shift 2 ;;
     --profile-warmup-steps|--profile_warmup_steps) profile_warmup_steps="$2"; shift 2 ;;
     --profile-active-steps|--profile_active_steps) profile_active_steps="$2"; shift 2 ;;
+    --profile-ranks|--profile_ranks) profile_ranks="$2"; shift 2 ;;
+    --profile-trace-name|--profile_trace_name) profile_trace_name="$2"; shift 2 ;;
+    --profile-record-shapes|--profile_record_shapes) profile_record_shapes=1; shift ;;
+    --profile-memory|--profile_memory) profile_memory=1; shift ;;
+    --profile-with-stack|--profile_with_stack) profile_with_stack=1; shift ;;
+    --profile-sync-each-step|--profile_sync_each_step) profile_sync_each_step=1; shift ;;
     --fp16) fp16=1; shift ;;
     --bf16) fp16=0; shift ;;
     --no-activation-checkpointing) activation_checkpointing=0; shift ;;
@@ -253,7 +271,23 @@ if [[ "$profile" == "1" ]]; then
     --profile_wait_steps "$profile_wait_steps"
     --profile_warmup_steps "$profile_warmup_steps"
     --profile_active_steps "$profile_active_steps"
+    --profile_ranks "$profile_ranks"
   )
+  if [[ -n "$profile_trace_name" ]]; then
+    run_args+=(--profile_trace_name "$profile_trace_name")
+  fi
+  if [[ "$profile_record_shapes" == "1" ]]; then
+    run_args+=(--profile_record_shapes)
+  fi
+  if [[ "$profile_memory" == "1" ]]; then
+    run_args+=(--profile_memory)
+  fi
+  if [[ "$profile_with_stack" == "1" ]]; then
+    run_args+=(--profile_with_stack)
+  fi
+  if [[ "$profile_sync_each_step" == "1" ]]; then
+    run_args+=(--profile_sync_each_step)
+  fi
 fi
 run_args+=("${extra_args[@]}")
 

@@ -20,8 +20,13 @@ NGPUS_PER_NODE=4 MAIN_PROCESS_PORT=29531 \
 ```
 
 Add `--profile --profile-warmup-steps 2 --profile-active-steps 2` for a short
-coarse profile. Each run writes logs, metrics, profile summaries, and a
-one-file `report.md` under `diagnostic_runs/<timestamp>-<name>/`.
+coarse Chrome trace. Use `--profile-ranks all` or a comma-separated rank list
+when non-rank-0 traces are needed. `--profile-record-shapes`,
+`--profile-memory`, and `--profile-with-stack` enable heavier PyTorch profiler
+metadata. `--profile-sync-each-step` is a diagnostic control only; omit it for
+baseline throughput and overlap rows. Each run writes logs, metrics, profile
+summaries, and a one-file `report.md` under
+`diagnostic_runs/<timestamp>-<name>/`.
 
 See [docs/diagnostic_optimization_pilot.md](docs/diagnostic_optimization_pilot.md)
 for the Anyscale Workspace flow and current pilot limitations.
@@ -227,6 +232,12 @@ The following parameters can be configured through command line arguments or env
 | `--deterministic` | `false` | Enable deterministic training |
 | `--profile` | `false` | Enable performance profiling |
 | `--profile_dir` | `None` | Directory for profiling outputs |
+| `--profile_ranks` | `0` | Global ranks to profile: comma-separated list or `all` |
+| `--profile_trace_name` | unset | Base worker name for generated Chrome trace files |
+| `--profile_record_shapes` | `false` | Enable PyTorch profiler shape metadata |
+| `--profile_memory` | `false` | Enable PyTorch profiler memory metadata |
+| `--profile_with_stack` | `false` | Enable PyTorch profiler stack metadata |
+| `--profile_sync_each_step` | `false` | Diagnostic-only CUDA synchronize after profiled steps |
 | `--bench_step` | `100` | Steps for benchmarking |
 | `--warmup_step` | `15` | Warmup steps before benchmarking |
 | `--chunked_causal_lm_loss_tokens` | `0` | If >0, compute shifted causal-LM cross entropy in token chunks to avoid a full fp32 logits upcast |
