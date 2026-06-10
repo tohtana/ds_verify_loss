@@ -18,6 +18,31 @@ import wandb
 
 from data_utils import get_tokenizer, load_and_prepare_dataset
 
+
+@contextmanager
+def profiler_scope(name: str, enabled: bool):
+    if enabled:
+        with torch.profiler.record_function(name):
+            yield
+    else:
+        yield
+
+
+def parse_profile_ranks(raw: str) -> Optional[set[int]]:
+    value = raw.strip().lower()
+    if value in {"", "main", "rank0"}:
+        return {0}
+    if value in {"all", "*"}:
+        return None
+    ranks = set()
+    for item in value.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        ranks.add(int(item))
+    return ranks
+
+
 @contextmanager
 def use_default_device(device):
     prev_device = torch.get_default_device()
@@ -188,6 +213,26 @@ def get_args():
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
     parser.add_argument("--profile_dir", type=str, default=None)
     parser.add_argument("--profile_summary_output", type=str, default=None)
+    parser.add_argument(
+        "--profile_trace_name",
+        type=str,
+        default=None,
+        help="Optional base worker name for Chrome trace files.",
+    )
+    parser.add_argument(
+        "--profile_ranks",
+        type=str,
+        default="0",
+        help="Ranks to profile: comma-separated global ranks, '0', or 'all'.",
+    )
+    parser.add_argument("--profile_record_shapes", action="store_true")
+    parser.add_argument("--profile_memory", action="store_true")
+    parser.add_argument("--profile_with_stack", action="store_true")
+    parser.add_argument(
+        "--profile_sync_each_step",
+        action="store_true",
+        help="Diagnostic-only: synchronize CUDA after profiled steps.",
+    )
     parser.add_argument(
         "--chunked_causal_lm_loss_tokens",
         type=int,
@@ -525,15 +570,23 @@ def run_training(args):
             model = torch.compile(model, backend=args.backend)
 
     prof_dir = None
+    profile_ranks = parse_profile_ranks(args.profile_ranks)
+    do_profile = args.profile and (
+        profile_ranks is None or accelerator.process_index in profile_ranks
+    )
     if args.profile:
         base_profile_dir = Path(args.profile_dir or "profiles")
-        if accelerator.is_main_process:
-            base_profile_dir.mkdir(parents=True, exist_ok=True)
-            prof_dir = str(base_profile_dir / exp_name)
+        prof_dir = str(base_profile_dir / exp_name)
+        if do_profile:
             os.makedirs(prof_dir, exist_ok=True)
         accelerator.wait_for_everyone()
+    else:
+        prof_dir = ""
 
-    do_profile = args.profile and accelerator.is_main_process
+    profile_worker_name = None
+    if args.profile_trace_name:
+        profile_worker_name = f"{args.profile_trace_name}-rank{accelerator.process_index}"
+
     prof_context = torch.profiler.profile(
         activities=[
             torch.profiler.ProfilerActivity.CPU,
@@ -545,7 +598,13 @@ def run_training(args):
             active=args.profile_active_steps * args.gradient_accumulation_steps,
             repeat=1,
         ),
-        on_trace_ready=torch.profiler.tensorboard_trace_handler(prof_dir),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(
+            prof_dir,
+            worker_name=profile_worker_name,
+        ),
+        record_shapes=args.profile_record_shapes,
+        profile_memory=args.profile_memory,
+        with_stack=args.profile_with_stack,
     ) if do_profile else nullcontext()
 
     # Training 
@@ -588,62 +647,75 @@ def run_training(args):
                 with acc_context(model):
                     update_step = (is_deepspeed and model.is_gradient_accumulation_boundary()) \
                         or (not is_deepspeed and accelerator.sync_gradients)
-                    if args.chunked_lm_head_loss_tokens > 0:
-                        loss = chunked_lm_head_loss_backward(
-                            model,
-                            accelerator,
-                            input_ids,
-                            attention_mask,
-                            args.chunked_lm_head_loss_tokens,
-                        )
-                    elif args.chunked_causal_lm_loss_tokens > 0:
-                        outputs = model(input_ids=input_ids, attention_mask=attention_mask, use_cache=False)
-                        loss = chunked_causal_lm_loss(
-                            outputs.logits,
-                            input_ids,
-                            args.chunked_causal_lm_loss_tokens,
-                            empty_cache_before_chunks=args.chunked_causal_lm_loss_empty_cache,
-                            loss_device=args.chunked_causal_lm_loss_device,
-                        )
-                    else:
-                        outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids, use_cache=False)
-                        loss = outputs.loss
+                    with profiler_scope("ds_verify_loss.train_step", do_profile):
+                        if args.chunked_lm_head_loss_tokens > 0:
+                            with profiler_scope("ds_verify_loss.forward_backward.chunked_lm_head", do_profile):
+                                loss = chunked_lm_head_loss_backward(
+                                    model,
+                                    accelerator,
+                                    input_ids,
+                                    attention_mask,
+                                    args.chunked_lm_head_loss_tokens,
+                                )
+                        elif args.chunked_causal_lm_loss_tokens > 0:
+                            with profiler_scope("ds_verify_loss.forward", do_profile):
+                                outputs = model(input_ids=input_ids, attention_mask=attention_mask, use_cache=False)
+                            with profiler_scope("ds_verify_loss.loss.chunked_causal_lm", do_profile):
+                                loss = chunked_causal_lm_loss(
+                                    outputs.logits,
+                                    input_ids,
+                                    args.chunked_causal_lm_loss_tokens,
+                                    empty_cache_before_chunks=args.chunked_causal_lm_loss_empty_cache,
+                                    loss_device=args.chunked_causal_lm_loss_device,
+                                )
+                        else:
+                            with profiler_scope("ds_verify_loss.forward", do_profile):
+                                outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids, use_cache=False)
+                                loss = outputs.loss
 
-                    if args.chunked_lm_head_loss_tokens <= 0:
-                        accelerator.backward(loss)
-                    optimizer.step()
-                    optimizer.zero_grad()
-                    global_step += 1
+                        if args.chunked_lm_head_loss_tokens <= 0:
+                            with profiler_scope("ds_verify_loss.backward", do_profile):
+                                accelerator.backward(loss)
+                        with profiler_scope("ds_verify_loss.optimizer_step", do_profile):
+                            optimizer.step()
+                        with profiler_scope("ds_verify_loss.optimizer_zero_grad", do_profile):
+                            optimizer.zero_grad()
+                        if do_profile and args.profile_sync_each_step and torch.cuda.is_available():
+                            with profiler_scope("ds_verify_loss.profile_sync_each_step", True):
+                                torch.cuda.synchronize()
 
-                    # Accumulate loss for averaging
-                    if update_step:
-                        losses.append(loss.item())
+                        global_step += 1
 
-                    if update_step:
-                        # Calculate average loss for logging
-                        avg_loss = sum(losses) / len(losses) if losses else loss.item()
-                        
-                        if accelerator.is_main_process and global_step % (args.log_interval * args.gradient_accumulation_steps) == 0:
-                            print(f"Epoch {epoch+1}, Step {global_step}, Loss: {avg_loss:.6f} sync: {accelerator.sync_gradients} time: {time.time() - start_iter} alloc_mem: {torch.cuda.memory_allocated()} peak_mem: {torch.cuda.max_memory_allocated()}")
+                        # Accumulate loss for averaging
+                        if update_step:
+                            with profiler_scope("ds_verify_loss.loss_item", do_profile):
+                                losses.append(loss.item())
 
-                        iter_times.append(time.time() - start_iter)
-                        
-                        # Log timing information to wandb at specified interval
-                        if args.use_wandb and accelerator.is_main_process and global_step % (args.log_interval * args.gradient_accumulation_steps) == 0:
-                            wandb.log({
-                                "timing/iteration_time": time.time() - start_iter,
-                                "train/loss": avg_loss,
-                                "train/epoch": epoch + 1,
-                                "train/global_step": global_step,
-                                "train/learning_rate": args.learning_rate,
-                                "system/cuda_memory_allocated": torch.cuda.memory_allocated(),
-                                "system/cuda_memory_peak": torch.cuda.max_memory_allocated(),
-                            }, step=global_step)
-                            
-                            # Reset loss list after logging
-                            losses = []
-                        
-                        start_iter = time.time()
+                        if update_step:
+                            # Calculate average loss for logging
+                            avg_loss = sum(losses) / len(losses) if losses else loss.item()
+
+                            if accelerator.is_main_process and global_step % (args.log_interval * args.gradient_accumulation_steps) == 0:
+                                print(f"Epoch {epoch+1}, Step {global_step}, Loss: {avg_loss:.6f} sync: {accelerator.sync_gradients} time: {time.time() - start_iter} alloc_mem: {torch.cuda.memory_allocated()} peak_mem: {torch.cuda.max_memory_allocated()}")
+
+                            iter_times.append(time.time() - start_iter)
+
+                            # Log timing information to wandb at specified interval
+                            if args.use_wandb and accelerator.is_main_process and global_step % (args.log_interval * args.gradient_accumulation_steps) == 0:
+                                wandb.log({
+                                    "timing/iteration_time": time.time() - start_iter,
+                                    "train/loss": avg_loss,
+                                    "train/epoch": epoch + 1,
+                                    "train/global_step": global_step,
+                                    "train/learning_rate": args.learning_rate,
+                                    "system/cuda_memory_allocated": torch.cuda.memory_allocated(),
+                                    "system/cuda_memory_peak": torch.cuda.max_memory_allocated(),
+                                }, step=global_step)
+
+                                # Reset loss list after logging
+                                losses = []
+
+                            start_iter = time.time()
 
                 if do_profile:
                     prof.step()
@@ -741,6 +813,16 @@ def run_training(args):
             "compile_time_sum_sec": compile_time_sum,
             "rank_step_times": rank_step_times,
             "profile_summary": profile_summary,
+            "profile_options": {
+                "enabled": bool(args.profile),
+                "profiled": bool(do_profile),
+                "profile_ranks": args.profile_ranks,
+                "profile_trace_name": args.profile_trace_name,
+                "profile_record_shapes": bool(args.profile_record_shapes),
+                "profile_memory": bool(args.profile_memory),
+                "profile_with_stack": bool(args.profile_with_stack),
+                "profile_sync_each_step": bool(args.profile_sync_each_step),
+            },
         }
         write_json(args.metrics_output, metrics_payload)
         write_json(args.profile_summary_output, profile_summary)
