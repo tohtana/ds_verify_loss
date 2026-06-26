@@ -27,6 +27,7 @@ Options:
   --profile-warmup-steps N            Default: 2.
   --profile-active-steps N            Default: 2.
   --fp16                              Generate an fp16 DeepSpeed config.
+  --deepcompile                       Enable DeepSpeed DeepCompile ZeRO-3 passes.
   --no-activation-checkpointing       Do not pass --activation_checkpointing.
   --zero-stage3-offload-param-device DEVICE
                                       Enable ZeRO-3 parameter offload; e.g. cpu.
@@ -78,6 +79,7 @@ profile_warmup_steps="2"
 profile_active_steps="2"
 fp16=0
 activation_checkpointing=1
+deepcompile=0
 zero_stage3_offload_param_device=""
 zero_stage3_offload_param_pin_memory="true"
 zero_offload_optimizer_device=""
@@ -113,6 +115,7 @@ while [[ $# -gt 0 ]]; do
     --profile-active-steps|--profile_active_steps) profile_active_steps="$2"; shift 2 ;;
     --fp16) fp16=1; shift ;;
     --bf16) fp16=0; shift ;;
+    --deepcompile) deepcompile=1; shift ;;
     --no-activation-checkpointing) activation_checkpointing=0; shift ;;
     --zero-stage3-offload-param-device|--zero_stage3_offload_param_device)
       zero_stage3_offload_param_device="$2"; shift 2 ;;
@@ -213,11 +216,15 @@ run_args=(
   --profile_summary_output "$profile_summary_file"
 )
 
-if [[ "$activation_checkpointing" == "1" ]]; then
+if [[ "$activation_checkpointing" == "1" && "$deepcompile" != "1" ]]; then
   run_args+=(--activation_checkpointing)
 fi
 if [[ "$fp16" == "1" ]]; then
   run_args+=(--fp16)
+fi
+if [[ "$deepcompile" == "1" ]]; then
+  run_args+=(--compile --deepcompile --passes z3)
+  activation_checkpointing=0
 fi
 if [[ -n "$zero_stage3_offload_param_device" ]]; then
   run_args+=(

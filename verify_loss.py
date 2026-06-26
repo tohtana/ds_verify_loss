@@ -29,6 +29,16 @@ def use_default_device(device):
 
 
 @contextmanager
+def use_default_dtype(dtype):
+    prev_dtype = torch.get_default_dtype()
+    torch.set_default_dtype(dtype)
+    try:
+        yield
+    finally:
+        torch.set_default_dtype(prev_dtype)
+
+
+@contextmanager
 def gathered_zero_parameters(module: torch.nn.Module):
     """Gather ZeRO-3 sharded parameters for a small scoped module call."""
     params = list(module.parameters(recurse=False))
@@ -180,6 +190,7 @@ def get_args():
     parser.add_argument("--num_layers", type=int, default=0)
     parser.add_argument("--attn_impl", type=str, default="sdpa")
     parser.add_argument("--compile", action="store_true")
+    parser.add_argument("--deepcompile", action="store_true")
     parser.add_argument("--passes", type=str, default=None)
     parser.add_argument("--backend", type=str, default="inductor")
     parser.add_argument("--offload_opt_states", action="store_true")
@@ -424,10 +435,14 @@ def run_training(args):
     model_name = args.model_name
 
     if args.load_weights:
-        model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=True)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            torch_dtype=torch.bfloat16,
+            trust_remote_code=True,
+        )
     else:
         model_config = AutoConfig.from_pretrained(model_name, attn_implementation=args.attn_impl, trust_remote_code=True)
-        with use_default_device(device):
+        with use_default_device(device), use_default_dtype(torch.bfloat16):
             if args.num_layers > 0:
                 print(f"num_hidden_layers: {model_config.num_hidden_layers} -> {args.num_layers}")
                 model_config.num_hidden_layers = args.num_layers
@@ -436,7 +451,9 @@ def run_training(args):
     # Load tokenizer
     tokenizer = get_tokenizer(model_name, trust_remote_code=True)
 
-    if args.activation_checkpointing:
+    if args.activation_checkpointing and args.deepcompile and accelerator.is_main_process:
+        print("Skipping HF gradient checkpointing because DeepCompile owns selective activation persistence.")
+    if args.activation_checkpointing and not args.deepcompile:
         model.gradient_checkpointing_enable()
 
     # Load and prepare dataset
@@ -457,6 +474,8 @@ def run_training(args):
     # Prepare everything with accelerator
     model, optimizer, data_loader = accelerator.prepare(model, optimizer, data_loader)
     print(f"Model prepared: {model.__class__} optimizer: {optimizer.__class__}")
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
 
     # Determine experimental settings for logging
     is_deepcompile = is_deepspeed and hasattr(model, '_config') and hasattr(model._config, 'compile_config') and model._config.compile_config.deepcompile
@@ -497,6 +516,7 @@ def run_training(args):
                 "num_layers": args.num_layers,
                 "attn_impl": args.attn_impl,
                 "compile": args.compile,
+                "deepcompile": args.deepcompile,
                 "passes": args.passes,
                 "backend": args.backend,
                 "offload_opt_states": args.offload_opt_states,
@@ -518,7 +538,9 @@ def run_training(args):
 
     if is_deepspeed:
         if args.compile:
-            schedule = make_schedule(args.passes.split(","), warmup=5) if args.passes else None
+            schedule = None
+            if args.passes and not args.deepcompile:
+                schedule = make_schedule(args.passes.split(","), warmup=5)
             model.compile(backend=args.backend, schedule=schedule)
     else:
         if args.compile:
@@ -655,6 +677,11 @@ def run_training(args):
                 break
 
     iter_times = iter_times[args.warmup_step:]
+    if args.bench_step > args.warmup_step and not iter_times:
+        raise RuntimeError(
+            "No measured steps were collected after warmup. "
+            "Increase --dataset_samples or reduce --warmup_step/--bench_step."
+        )
 
     local_avg_iter_time = sum(iter_times) / len(iter_times) if iter_times else 0.0
     local_step_stats = torch.tensor(
@@ -677,6 +704,33 @@ def run_training(args):
         if accelerator.is_main_process:
             print(f"Warning: failed to gather rank timing stats: {type(exc).__name__}: {exc}")
 
+    local_memory_stats = torch.tensor(
+        [
+            float(torch.cuda.memory_allocated()) if torch.cuda.is_available() else 0.0,
+            float(torch.cuda.max_memory_allocated()) if torch.cuda.is_available() else 0.0,
+            float(torch.cuda.memory_reserved()) if torch.cuda.is_available() else 0.0,
+            float(torch.cuda.max_memory_reserved()) if torch.cuda.is_available() else 0.0,
+        ],
+        dtype=torch.float64,
+        device=device,
+    )
+    try:
+        gathered_memory_stats = accelerator.gather(local_memory_stats).detach().cpu().reshape(-1, 4).tolist()
+        rank_memory_stats = [
+            {
+                "rank": index,
+                "cuda_memory_allocated_bytes": int(values[0]),
+                "cuda_max_memory_allocated_bytes": int(values[1]),
+                "cuda_memory_reserved_bytes": int(values[2]),
+                "cuda_max_memory_reserved_bytes": int(values[3]),
+            }
+            for index, values in enumerate(gathered_memory_stats)
+        ]
+    except Exception as exc:
+        rank_memory_stats = []
+        if accelerator.is_main_process:
+            print(f"Warning: failed to gather rank memory stats: {type(exc).__name__}: {exc}")
+
     if accelerator.is_main_process:
         compile_time_sum = 0
         compile_time = 0
@@ -693,6 +747,12 @@ def run_training(args):
         cuda_allocated = int(torch.cuda.memory_allocated()) if torch.cuda.is_available() else 0
         cuda_reserved = int(torch.cuda.memory_reserved()) if torch.cuda.is_available() else 0
         cuda_max_reserved = int(torch.cuda.max_memory_reserved()) if torch.cuda.is_available() else 0
+        cuda_max_allocated_cross_rank = max(
+            [item["cuda_max_memory_allocated_bytes"] for item in rank_memory_stats] or [cuda_max_allocated]
+        )
+        cuda_max_reserved_cross_rank = max(
+            [item["cuda_max_memory_reserved_bytes"] for item in rank_memory_stats] or [cuda_max_reserved]
+        )
         
         msg = f"{args.model_name} ds={is_deepspeed} np={accelerator.num_processes} batch_size={args.batch_size} seq={args.seq_length} zero_stage={args.zero_stage} acc={args.gradient_accumulation_steps} ac={args.activation_checkpointing} compile={args.compile} backend={args.backend} deepcompile={is_deepcompile} passes={args.passes} compile_time={compile_time_sum} iteration time: {avg_iter_time:.4f} samples/s: {samples_per_second} tokens/s: {tokens_per_second} alloc_mem: {cuda_allocated} peak_mem: {cuda_max_allocated} reserved_mem: {cuda_reserved} peak_reserved_mem: {cuda_max_reserved}"
         print(msg)
@@ -726,6 +786,9 @@ def run_training(args):
             "dataset_name": args.dataset_name,
             "dataset_percentage": args.dataset_percentage,
             "dataset_samples": args.dataset_samples,
+            "compile": args.compile,
+            "deepcompile": args.deepcompile,
+            "is_deepcompile": is_deepcompile,
             "global_samples_per_step": samples_per_step,
             "global_tokens_per_step": tokens_per_step,
             "bench_step": args.bench_step,
@@ -738,8 +801,11 @@ def run_training(args):
             "cuda_max_memory_allocated_bytes": cuda_max_allocated,
             "cuda_memory_reserved_bytes": cuda_reserved,
             "cuda_max_memory_reserved_bytes": cuda_max_reserved,
+            "cuda_max_memory_allocated_cross_rank_bytes": cuda_max_allocated_cross_rank,
+            "cuda_max_memory_reserved_cross_rank_bytes": cuda_max_reserved_cross_rank,
             "compile_time_sum_sec": compile_time_sum,
             "rank_step_times": rank_step_times,
+            "rank_memory_stats": rank_memory_stats,
             "profile_summary": profile_summary,
         }
         write_json(args.metrics_output, metrics_payload)

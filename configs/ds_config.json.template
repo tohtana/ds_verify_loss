@@ -6,7 +6,16 @@
     },
     {% else %}
     "bf16": {
-        "enabled": true
+        "enabled": true,
+        "bf16_master_weights_and_grads": true,
+        "bf16_optimizer_states": true
+    },
+    "torch_autocast": {
+        "enabled": true,
+        "dtype": "bfloat16"
+    },
+    "data_types": {
+        "grad_accum_dtype": "bf16"
     },
     {% endif %}
     "zero_optimization": {
@@ -69,6 +78,9 @@
     },
     "compile": {
         "deepcompile": {{ deepcompile }},
+        {%- if deepcompile == "true" %}
+        "passes": ["z3"],
+        {%- endif %}
         "offload_activation": false,
         "offload_opt_states": false,
         "double_buffer": true,

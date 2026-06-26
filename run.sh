@@ -100,6 +100,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --deepcompile)
             DEEPCOMPILE=1
+            EXTRA_OPTS="${EXTRA_OPTS} --deepcompile"
             shift
             ;;
         --passes)
