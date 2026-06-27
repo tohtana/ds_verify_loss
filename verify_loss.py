@@ -451,9 +451,7 @@ def run_training(args):
     # Load tokenizer
     tokenizer = get_tokenizer(model_name, trust_remote_code=True)
 
-    if args.activation_checkpointing and args.deepcompile and accelerator.is_main_process:
-        print("Skipping HF gradient checkpointing because DeepCompile owns selective activation persistence.")
-    if args.activation_checkpointing and not args.deepcompile:
+    if args.activation_checkpointing:
         model.gradient_checkpointing_enable()
 
     # Load and prepare dataset

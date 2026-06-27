@@ -216,7 +216,7 @@ run_args=(
   --profile_summary_output "$profile_summary_file"
 )
 
-if [[ "$activation_checkpointing" == "1" && "$deepcompile" != "1" ]]; then
+if [[ "$activation_checkpointing" == "1" ]]; then
   run_args+=(--activation_checkpointing)
 fi
 if [[ "$fp16" == "1" ]]; then
@@ -224,7 +224,6 @@ if [[ "$fp16" == "1" ]]; then
 fi
 if [[ "$deepcompile" == "1" ]]; then
   run_args+=(--compile --deepcompile --passes z3)
-  activation_checkpointing=0
 fi
 if [[ -n "$zero_stage3_offload_param_device" ]]; then
   run_args+=(
