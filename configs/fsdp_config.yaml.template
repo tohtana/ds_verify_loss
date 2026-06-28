@@ -14,6 +14,7 @@ fsdp_config:
   {%- endif %}
   fsdp_state_dict_type: SHARDED_STATE_DICT
   fsdp_sync_module_states: true
+  fsdp_transformer_layer_cls_to_wrap: Qwen3DecoderLayer
   fsdp_use_orig_params: true
 machine_rank: {{ machine_rank }}
 main_training_function: main
