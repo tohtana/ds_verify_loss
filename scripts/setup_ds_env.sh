@@ -19,8 +19,11 @@ PY="$repo_root/$VENV/bin/python"
 
 # torch 2.6 (cu124): DeepCompile needs torch >= 2.6; matches the validated v0 stack.
 uv pip install -p "$PY" "torch==2.6.*" --index-url https://download.pytorch.org/whl/cu124
-uv pip install -p "$PY" "transformers==4.51.3" accelerate datasets wandb hjson ninja \
-    py-cpuinfo nvidia-ml-py numpy setuptools wheel einops   # einops: required by transformers Qwen3
+# transformers/accelerate + the DeepSpeed runtime deps (DeepSpeed is installed
+# --no-deps below, so list its deps here: einops/hjson/msgpack/ninja/numpy/
+# packaging/psutil/py-cpuinfo/pydantic/tqdm). The repo README's list was incomplete.
+uv pip install -p "$PY" "transformers==4.51.3" accelerate datasets wandb setuptools wheel \
+    einops hjson msgpack ninja numpy packaging psutil py-cpuinfo pydantic tqdm nvidia-ml-py
 
 # DeepSpeed master (has DeepCompile). JIT-compiles ops at runtime, so the install is
 # just the Python package. --no-deps per the repo README (deps installed above).
