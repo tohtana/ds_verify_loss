@@ -12,7 +12,13 @@ PY="$repo_root/$VENV/bin/python"
 uv pip install -p "$PY" "torch==2.6.*" --index-url https://download.pytorch.org/whl/cu124
 uv pip install -p "$PY" setuptools wheel packaging
 # Editable install pulls torchtitan's own requirements (datasets, tomli, etc.).
+# NOTE: this also pulls a recent torch (overriding the 2.6 line above) — torchtitan
+# main tracks recent torch; that's fine, this venv is isolated.
 uv pip install -p "$PY" -e third_party/torchtitan
+
+# Compat patch: torchtitan calls create_block_mask(separate_full_blocks=...), a kwarg
+# only in a narrow torch nightly window. Make it drop unsupported kwargs (idempotent).
+"$PY" scripts/patch_torchtitan.py
 
 # torchtitan's qwen3_14b config uses the C4 dataset + the Qwen3-14B tokenizer.
 # Qwen is NOT gated (no HF token). Paths are relative to the torchtitan root.

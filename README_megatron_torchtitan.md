@@ -93,4 +93,13 @@ Baked into the configs/scripts so you don't rediscover them: Megatron needs Pyth
 venvs omit `python3-config` and `pybind11` (dataset-helper build) — symlinked/installed;
 RoPE/grad-accum/swiglu fusions + persistent-layernorm require TE/apex (disabled);
 `--eval-interval` must be set even with eval off; Megatron-FSDP's `multi_tensor`
-fallback needs apex (installed). TorchTitan needs the Qwen3-14B tokenizer (downloaded).
+fallback needs apex (installed); Megatron-FSDP forbids `CUDA_DEVICE_MAX_CONNECTIONS=1`.
+TorchTitan needs the Qwen3-14B tokenizer (downloaded); its `qwen3_14b` config already
+defaults to FullAC; and it calls `create_block_mask(separate_full_blocks=...)`, a torch
+nightly-only kwarg — `scripts/patch_torchtitan.py` strips unsupported kwargs so it runs
+on stable torch.
+
+> **Comparability caveat:** torchtitan's editable install pulls a *recent* torch
+> (its own venv), so torchtitan may run on a newer torch than the fsdp/deepspeed
+> cells (torch 2.6). Same framework comparison still holds, but absolute kernel
+> performance isn't on an identical torch.
