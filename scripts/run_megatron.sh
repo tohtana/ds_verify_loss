@@ -44,6 +44,15 @@ export PYTHONPATH="$repo_root/third_party/Megatron-LM:${PYTHONPATH:-}"
 # Put the venv's bin first on PATH so Megatron's dataset-helper Makefile uses the
 # venv's python3 / python3-config (3.12 + pybind11), not the system python3 (3.8).
 export PATH="$(cd "$(dirname "$PY")" && pwd):$PATH"
+# Pin CUDA to 12.6 (matches torch cu126). The box also has cuda-13.0 in ldconfig, and
+# TransformerEngine searches CUDA_HOME/CUDA_PATH first — if the shell points those at
+# cuda-13, TE loads a cu13 lib alongside torch's cu12 and dies with "Multiple libcudart".
+export CUDA_HOME=/usr/local/cuda-12.6
+export CUDA_PATH=/usr/local/cuda-12.6
+# Prepend cuda-12.6 + the venv's bundled cu12 NVIDIA libs so even a bare-name
+# (ldconfig) lookup for libcudnn/libcudart resolves to cu12, never cuda-13.0.
+venv_nv_libs="$(find "$repo_root/.venv-megatron/lib"/python*/site-packages/nvidia -maxdepth 2 -name lib -type d 2>/dev/null | paste -sd:)"
+export LD_LIBRARY_PATH="$CUDA_HOME/lib64:${venv_nv_libs}:${LD_LIBRARY_PATH:-}"
 export NCCL_DEBUG=WARN
 # NOTE: do NOT set CUDA_DEVICE_MAX_CONNECTIONS=1 here — Megatron-FSDP asserts it must
 # be >1 or unset. (It's a tensor-parallel comm-overlap setting; we run TP=1.)
