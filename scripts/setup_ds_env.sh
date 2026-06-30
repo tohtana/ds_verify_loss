@@ -23,7 +23,8 @@ uv pip install -p "$PY" "torch==2.6.*" --index-url https://download.pytorch.org/
 # --no-deps below, so list its deps here: einops/hjson/msgpack/ninja/numpy/
 # packaging/psutil/py-cpuinfo/pydantic/tqdm). The repo README's list was incomplete.
 uv pip install -p "$PY" "transformers==4.51.3" accelerate datasets wandb setuptools wheel \
-    einops hjson msgpack ninja numpy packaging psutil py-cpuinfo pydantic tqdm nvidia-ml-py
+    einops hjson msgpack ninja numpy packaging psutil py-cpuinfo pydantic tqdm nvidia-ml-py \
+    scipy   # scipy: DeepCompile's communication profiler
 
 # DeepSpeed master (has DeepCompile). JIT-compiles ops at runtime, so the install is
 # just the Python package. --no-deps per the repo README (deps installed above).
