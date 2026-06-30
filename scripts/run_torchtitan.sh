@@ -67,11 +67,13 @@ set +e
   --training.steps "$BENCH_STEP" --training.seq_len "$SEQ" \
   --training.local_batch_size "$BATCH" --training.global_batch_size "$global_batch" \
   --parallelism.data_parallel_shard_degree "$NGPUS_PER_NODE" \
+  --metrics.log_freq 1 \
   "${EXTRA[@]}" 2>&1 | tee "$fw_log"
 rc=${PIPESTATUS[0]}
-set -e
 cd "$repo_root"
-kill "$sampler" 2>/dev/null; wait "$sampler" 2>/dev/null; trap - EXIT
+# NOTE: stay under `set +e` here. `wait` on the SIGTERM'd sampler returns non-zero,
+# which (with set -e) would abort BEFORE emit and lose metrics.json on a SUCCESSFUL run.
+kill "$sampler" 2>/dev/null || true; wait "$sampler" 2>/dev/null || true; trap - EXIT
 
 "$PY" scripts/emit_matrix_metrics.py --framework torchtitan --log "$fw_log" \
   --metrics-output "$METRICS_OUTPUT" --model "$MODEL" --batch-size "$BATCH" --seq-length "$SEQ" \

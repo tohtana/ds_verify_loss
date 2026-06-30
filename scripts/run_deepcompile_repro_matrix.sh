@@ -105,6 +105,11 @@ for framework in $frameworks; do
         warmup="$deepcompile_warmup"
         extra=(--compile --deepcompile --passes z3)
       fi
+      # torchtitan compiles too (inductor + FlexAttention autotune), so the first
+      # several steps are compile, not steady state -> use the compile-sized warmup.
+      if [[ "$framework" == "torchtitan" ]]; then
+        warmup="$deepcompile_warmup"
+      fi
       bench_step=$((warmup + measured_steps))
       port=$((base_port + cell_index))
       cell_id="${framework}-mb${mb}-seq${seq}"

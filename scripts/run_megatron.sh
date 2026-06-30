@@ -67,8 +67,9 @@ set +e
   --micro-batch-size "$BATCH" --global-batch-size "$global_batch" \
   --seq-length "$SEQ" --train-iters "$BENCH_STEP" "${ac_args[@]}" 2>&1 | tee "$fw_log"
 rc=${PIPESTATUS[0]}
-set -e
-kill "$sampler" 2>/dev/null; wait "$sampler" 2>/dev/null; trap - EXIT
+# Stay under `set +e`: `wait` on the SIGTERM'd sampler returns non-zero, which with
+# set -e would abort before emit and lose metrics.json on a successful run.
+kill "$sampler" 2>/dev/null || true; wait "$sampler" 2>/dev/null || true; trap - EXIT
 
 "$PY" scripts/emit_matrix_metrics.py --framework megatron --log "$fw_log" \
   --metrics-output "$METRICS_OUTPUT" --model "$MODEL" --batch-size "$BATCH" --seq-length "$SEQ" \

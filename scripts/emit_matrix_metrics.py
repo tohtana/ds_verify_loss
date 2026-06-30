@@ -34,8 +34,13 @@ def megatron_step_times_sec(text: str) -> list[float]:
 
 def torchtitan_step_times_sec(text: str, tokens_per_step_per_gpu: int) -> list[float]:
     text = ANSI.sub("", text)
-    tps = [float(x.replace(",", "")) for x in re.findall(r"tps:\s*([\d,]+)", text)]
-    return [tokens_per_step_per_gpu / t for t in tps if t > 0]
+    # torchtitan logs "step: N ... tps: X" (per-device tps); every rank logs the same
+    # step, so dedupe by step number, then order by step. (Run with --metrics.log_freq 1
+    # so every step is logged, otherwise there are too few points to drop warmup.)
+    by_step: dict[int, float] = {}
+    for m in re.finditer(r"step:\s*(\d+).*?tps:\s*([\d,]+)", text):
+        by_step[int(m.group(1))] = float(m.group(2).replace(",", ""))
+    return [tokens_per_step_per_gpu / by_step[s] for s in sorted(by_step) if by_step[s] > 0]
 
 
 def peak_reserved_bytes(gpu_mem_log: str | None) -> int | None:
