@@ -26,7 +26,9 @@ PY="$repo_root/$VENV/bin/python"
 PYBINDIR="$(dirname "$(readlink -f "$VENV/bin/python")")"
 [ -e "$PYBINDIR/python3-config" ] && ln -sf "$PYBINDIR/python3-config" "$VENV/bin/python3-config"
 
-uv pip install -p "$PY" "torch==2.6.*" --index-url https://download.pytorch.org/whl/cu124
+# cu126 (not cu124): Apex's cuda_ext build requires nvcc's CUDA version to match
+# torch's, and the toolkits on this box are 12.6+ (no 12.4). CUDA_HOME=cuda-12.6.
+uv pip install -p "$PY" "torch==2.6.*" --index-url https://download.pytorch.org/whl/cu126
 uv pip install -p "$PY" setuptools wheel packaging psutil pyyaml ninja einops sentencepiece tiktoken numpy regex pybind11
 
 # Apex with C++/CUDA extensions (multi_tensor ops). SLOW build (~30-60 min); needs nvcc.

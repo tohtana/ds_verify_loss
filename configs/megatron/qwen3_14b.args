@@ -31,13 +31,12 @@
 --vocab-size 151936
 --make-vocab-size-divisible-by 128
 
-# --- implementation: pure-PyTorch (no TransformerEngine / apex) ---
---transformer-impl local
---attention-backend unfused
---no-rope-fusion
+# --- implementation: TransformerEngine (fused attention + TENorm) — the
+#     representative Megatron path (handles RMSNorm/qk-layernorm/rope/swiglu fusion,
+#     so none of the local-impl workarounds are needed). ---
+--transformer-impl transformer_engine
+# Megatron-FSDP still requires gradient-accumulation-fusion off.
 --no-gradient-accumulation-fusion
---no-bias-swiglu-fusion
---no-persist-layer-norm
 
 # --- parallelism: Megatron-FSDP (fully shards params+grads+optimizer = ZeRO-3 equiv) ---
 --tensor-model-parallel-size 1
@@ -46,6 +45,8 @@
 --data-parallel-sharding-strategy optim_grads_params
 --init-model-with-meta-device
 --fsdp-double-buffer
+# Megatron-FSDP asserts this checkpoint format even when not saving.
+--ckpt-format fsdp_dtensor
 
 # --- precision / optimizer ---
 --bf16
