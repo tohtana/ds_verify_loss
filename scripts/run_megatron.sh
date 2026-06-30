@@ -41,8 +41,10 @@ fw_log="$results_dir/framework.log"
 mem_log="$results_dir/gpu_mem_mib.log"
 
 export PYTHONPATH="$repo_root/third_party/Megatron-LM:${PYTHONPATH:-}"
-export CUDA_DEVICE_MAX_CONNECTIONS=1
 export NCCL_DEBUG=WARN
+# NOTE: do NOT set CUDA_DEVICE_MAX_CONNECTIONS=1 here — Megatron-FSDP asserts it must
+# be >1 or unset. (It's a tensor-parallel comm-overlap setting; we run TP=1.)
+unset CUDA_DEVICE_MAX_CONNECTIONS || true
 
 global_batch=$(( BATCH * NGPUS_PER_NODE * GAS ))
 ac_args=()

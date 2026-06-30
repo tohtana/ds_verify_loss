@@ -46,11 +46,14 @@ export NCCL_DEBUG=WARN
 export PYTORCH_ALLOC_CONF="expandable_segments:True"
 
 global_batch=$(( BATCH * NGPUS_PER_NODE * GAS ))
-ac_mode="none"; [[ "$AC" == "1" ]] && ac_mode="full"
+# torchtitan's qwen3_14b config already defaults to FullAC (full activation
+# checkpointing), matching the matrix's --activation_checkpointing, so we don't
+# pass an AC override (this commit selects AC via a `activation-checkpoint:<mode>`
+# variant, not a --activation-checkpoint.mode flag).
 # shellcheck disable=SC2207
 EXTRA=( $(grep -vE '^\s*(#|$)' configs/torchtitan/qwen3_14b.flags 2>/dev/null) )
 
-echo "[run_torchtitan] model=$MODEL mb=$BATCH seq=$SEQ gbs=$global_batch steps=$BENCH_STEP ac=$ac_mode nproc=$NGPUS_PER_NODE"
+echo "[run_torchtitan] model=$MODEL mb=$BATCH seq=$SEQ gbs=$global_batch steps=$BENCH_STEP ac=full(default) nproc=$NGPUS_PER_NODE"
 
 ( while true; do nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null; sleep 0.2; done ) > "$mem_log" &
 sampler=$!
@@ -64,7 +67,6 @@ set +e
   --training.steps "$BENCH_STEP" --training.seq_len "$SEQ" \
   --training.local_batch_size "$BATCH" --training.global_batch_size "$global_batch" \
   --parallelism.data_parallel_shard_degree "$NGPUS_PER_NODE" \
-  --activation-checkpoint.mode "$ac_mode" \
   "${EXTRA[@]}" 2>&1 | tee "$fw_log"
 rc=${PIPESTATUS[0]}
 set -e

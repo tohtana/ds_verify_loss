@@ -31,11 +31,13 @@ uv pip install -p "$PY" setuptools wheel packaging psutil pyyaml ninja einops se
 
 # Apex with C++/CUDA extensions (multi_tensor ops). SLOW build (~30-60 min); needs nvcc.
 # Set SKIP_APEX=1 to skip, but Megatron-FSDP will then crash in the triton fallback.
+# NOTE: built via the venv's *pip* (not uv) — apex's legacy setup.py needs pip's
+# `--build-option` passthrough, which uv does not support. uv venvs omit pip, so add it.
 if [ "${SKIP_APEX:-0}" != "1" ]; then
   echo ">> building NVIDIA Apex with cuda_ext (this is the long pole)..."
-  uv pip install -p "$PY" -v --no-build-isolation \
-    --config-settings "--build-option=--cpp_ext" \
-    --config-settings "--build-option=--cuda_ext" \
+  uv pip install -p "$PY" pip
+  "$PY" -m pip install -v --disable-pip-version-check --no-cache-dir --no-build-isolation \
+    --config-settings "--build-option=--cpp_ext --cuda_ext" \
     "git+https://github.com/NVIDIA/apex.git" || \
     echo "WARN: Apex build failed -> Megatron-FSDP will hit the triton multi_tensor fallback"
 fi
