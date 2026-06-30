@@ -1,0 +1,7 @@
+# Optional static torchtitan overrides applied on top of the registered `qwen3_14b`
+# config, appended by scripts/run_torchtitan.sh. The launcher already sets the
+# per-cell knobs (--training.steps/seq_len/local_batch_size/global_batch_size,
+# --parallelism.data_parallel_shard_degree, activation checkpointing), so this file
+# is normally empty. Add one flag per line to customize (e.g. enable compile).
+# Confirm names for the pinned commit with:
+#   python -m torchtitan.train --module qwen3 --config qwen3_14b --help

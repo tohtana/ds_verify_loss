@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 
-FRAMEWORKS = ["fsdp", "deepspeed", "deepcompile"]
+FRAMEWORKS = ["fsdp", "deepspeed", "deepcompile", "megatron", "torchtitan"]
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -65,7 +65,7 @@ def classify_status(cell_dir: Path, metrics: dict[str, Any]) -> str:
 
 
 def parse_cell_name(name: str) -> tuple[str, int, int] | None:
-    match = re.fullmatch(r"(fsdp|deepspeed|deepcompile)-mb(\d+)-seq(\d+)", name)
+    match = re.fullmatch(r"(fsdp|deepspeed|deepcompile|megatron|torchtitan)-mb(\d+)-seq(\d+)", name)
     if not match:
         return None
     return match.group(1), int(match.group(2)), int(match.group(3))
@@ -185,7 +185,12 @@ def write_tables(cells: dict[tuple[str, int, int], dict[str, Any]], out: Path) -
 def write_ratios(cells: dict[tuple[str, int, int], dict[str, Any]], out: Path) -> None:
     mbs, seqs = axes(cells)
     lines = ["# Reproduction Matrix Ratios", ""]
-    for numerator, denominator in [("deepspeed", "fsdp"), ("deepcompile", "fsdp")]:
+    for numerator, denominator in [
+        ("deepspeed", "fsdp"),
+        ("deepcompile", "fsdp"),
+        ("megatron", "fsdp"),
+        ("torchtitan", "fsdp"),
+    ]:
         lines.extend([f"## {numerator} / {denominator}", ""])
         for metric, title in [
             ("avg_step_time_sec", "step time"),

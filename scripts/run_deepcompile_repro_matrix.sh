@@ -7,9 +7,13 @@ Usage:
   scripts/run_deepcompile_repro_matrix.sh [options]
 
 Runs the reproduction matrix:
-  framework in {fsdp, deepspeed, deepcompile}
+  framework in {fsdp, deepspeed, deepcompile, megatron, torchtitan}
   batch size in {1,2,4}
   sequence length in {1024,2048,4096}
+
+  fsdp/deepspeed/deepcompile run via run.sh (accelerate + verify_loss.py).
+  megatron/torchtitan run via scripts/run_{megatron,torchtitan}.sh (own venvs,
+  Qwen3-14B, FSDP-equivalent sharding) and emit the same metrics.json schema.
 
 Options:
   --results-root DIR     Default: repro_matrix_runs.
@@ -108,24 +112,44 @@ for framework in $frameworks; do
       mkdir -p "$results_dir"
 
       echo ">>> [$cell_index] $cell_id warmup=$warmup measured=$measured_steps port=$port"
-      cmd=(
-        bash ./run.sh
-          --model "$model"
-          --backend "$backend"
-          --zero-stage 3
-          --batch-size "$mb"
-          --seq-length "$seq"
-          --gradient-accumulation-steps 1
-          --dataset_name synthetic
-          --dataset_samples "$dataset_samples"
-          --dataset_percentage 1.0
-          --bench_step "$bench_step"
-          --warmup_step "$warmup"
-          --log_interval 1
-          --metrics_output "$results_dir/metrics.json"
-          "${extra[@]}"
-          --learning_rate 1e-4
-      )
+      case "$framework" in
+        megatron|torchtitan)
+          # External frameworks: run via their own launcher (own venv), same knobs.
+          # They write metrics.json in the same schema (scripts/emit_matrix_metrics.py).
+          cmd=(
+            bash "scripts/run_${framework}.sh"
+              --model "$model"
+              --batch-size "$mb"
+              --seq-length "$seq"
+              --gradient-accumulation-steps 1
+              --bench_step "$bench_step"
+              --warmup_step "$warmup"
+              --measured-steps "$measured_steps"
+              --metrics_output "$results_dir/metrics.json"
+              "${extra[@]}"
+          )
+          ;;
+        *)
+          cmd=(
+            bash ./run.sh
+              --model "$model"
+              --backend "$backend"
+              --zero-stage 3
+              --batch-size "$mb"
+              --seq-length "$seq"
+              --gradient-accumulation-steps 1
+              --dataset_name synthetic
+              --dataset_samples "$dataset_samples"
+              --dataset_percentage 1.0
+              --bench_step "$bench_step"
+              --warmup_step "$warmup"
+              --log_interval 1
+              --metrics_output "$results_dir/metrics.json"
+              "${extra[@]}"
+              --learning_rate 1e-4
+          )
+          ;;
+      esac
       printf '%q ' "${cmd[@]}" > "$results_dir/command.txt"
       printf '\n' >> "$results_dir/command.txt"
 
