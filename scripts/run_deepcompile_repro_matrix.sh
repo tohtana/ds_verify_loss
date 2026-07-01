@@ -25,6 +25,8 @@ Options:
   --measured-steps N     Default: 20.
   --eager-warmup N       Default: 5.
   --deepcompile-warmup N Default: 10.
+  --ac on|off            Activation checkpointing for fsdp/deepspeed/torchtitan/megatron.
+                         Default: on. (deepcompile always manages its own activations.)
   --dataset-samples N    Default: 8192.
   --base-port N          Default: 29531.
   --cell-timeout-s N     Default: 3600. Use 0 to disable.
@@ -44,6 +46,7 @@ frameworks="fsdp deepspeed deepcompile"
 measured_steps="20"
 eager_warmup="5"
 deepcompile_warmup="10"
+ac_mode="on"          # on|off : activation checkpointing for fsdp/deepspeed/torchtitan/megatron
 dataset_samples="8192"
 base_port="29531"
 cell_timeout_s="3600"
@@ -59,6 +62,7 @@ while [[ $# -gt 0 ]]; do
     --measured-steps|--measured_steps) measured_steps="$2"; shift 2 ;;
     --eager-warmup|--eager_warmup) eager_warmup="$2"; shift 2 ;;
     --deepcompile-warmup|--deepcompile_warmup) deepcompile_warmup="$2"; shift 2 ;;
+    --ac) ac_mode="$2"; shift 2 ;;
     --dataset-samples|--dataset_samples) dataset_samples="$2"; shift 2 ;;
     --base-port|--base_port) base_port="$2"; shift 2 ;;
     --cell-timeout-s|--cell_timeout_s) cell_timeout_s="$2"; shift 2 ;;
@@ -83,6 +87,7 @@ mkdir -p "$run_root"
   echo "mbs=$mbs"
   echo "seqs=$seqs"
   echo "measured_steps=$measured_steps"
+  echo "ac_mode=$ac_mode"
   echo "eager_warmup=$eager_warmup"
   echo "deepcompile_warmup=$deepcompile_warmup"
   echo "dataset_samples=$dataset_samples"
@@ -99,8 +104,13 @@ for framework in $frameworks; do
       cell_index=$((cell_index + 1))
       warmup="$eager_warmup"
       backend="$framework"
-      extra=(--activation_checkpointing)
+      # AC knob for fsdp/deepspeed/torchtitan/megatron. The launchers each turn
+      # --activation_checkpointing into their native AC (HF gradient ckpt / Megatron
+      # recompute / torchtitan activation-checkpoint:full); its absence -> AC off.
+      if [[ "$ac_mode" == "off" ]]; then extra=(); else extra=(--activation_checkpointing); fi
       if [[ "$framework" == "deepcompile" ]]; then
+        # deepcompile always manages its own selective activation persistence (the
+        # harness skips HF gradient checkpointing for it) -> unaffected by --ac.
         backend="deepspeed"
         warmup="$deepcompile_warmup"
         extra=(--compile --deepcompile --passes z3)

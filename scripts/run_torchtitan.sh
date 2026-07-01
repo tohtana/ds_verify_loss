@@ -46,14 +46,15 @@ export NCCL_DEBUG=WARN
 export PYTORCH_ALLOC_CONF="expandable_segments:True"
 
 global_batch=$(( BATCH * NGPUS_PER_NODE * GAS ))
-# torchtitan's qwen3_14b config already defaults to FullAC (full activation
-# checkpointing), matching the matrix's --activation_checkpointing, so we don't
-# pass an AC override (this commit selects AC via a `activation-checkpoint:<mode>`
-# variant, not a --activation-checkpoint.mode flag).
+# torchtitan selects AC via a tyro subcommand token (this commit has no
+# --activation-checkpoint.mode flag): the qwen3_14b config defaults to FullAC, and
+# `activation-checkpoint:none` -> parallelize.py skips AC entirely. Drive it off our
+# --activation_checkpointing flag so the matrix's --ac knob reaches torchtitan too.
+if [[ "$AC" == "1" ]]; then TT_AC="activation-checkpoint:full"; else TT_AC="activation-checkpoint:none"; fi
 # shellcheck disable=SC2207
 EXTRA=( $(grep -vE '^\s*(#|$)' configs/torchtitan/qwen3_14b.flags 2>/dev/null) )
 
-echo "[run_torchtitan] model=$MODEL mb=$BATCH seq=$SEQ gbs=$global_batch steps=$BENCH_STEP ac=full(default) nproc=$NGPUS_PER_NODE"
+echo "[run_torchtitan] model=$MODEL mb=$BATCH seq=$SEQ gbs=$global_batch steps=$BENCH_STEP ac=$([[ "$AC" == "1" ]] && echo full || echo none) nproc=$NGPUS_PER_NODE"
 
 ( while true; do nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null; sleep 0.2; done ) > "$mem_log" &
 sampler=$!
@@ -68,7 +69,7 @@ set +e
   --training.local_batch_size "$BATCH" --training.global_batch_size "$global_batch" \
   --parallelism.data_parallel_shard_degree "$NGPUS_PER_NODE" \
   --metrics.log_freq 1 \
-  "${EXTRA[@]}" 2>&1 | tee "$fw_log"
+  "${EXTRA[@]}" "$TT_AC" 2>&1 | tee "$fw_log"
 rc=${PIPESTATUS[0]}
 cd "$repo_root"
 # NOTE: stay under `set +e` here. `wait` on the SIGTERM'd sampler returns non-zero,
