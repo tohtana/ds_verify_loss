@@ -2,8 +2,9 @@
 # The launcher appends the PER-CELL knobs: --micro-batch-size, --global-batch-size,
 # --seq-length, --train-iters, and the recompute (activation-checkpointing) flags.
 #
-# This is a pure-PyTorch path (no TransformerEngine, no flash-attn, no apex fused
-# kernels) so it runs without those deps. See scripts/setup_megatron_env.sh.
+# This uses the TransformerEngine path (--transformer-impl transformer_engine below):
+# TE fused attention (cuDNN) + TENorm — the representative, optimized Megatron path.
+# See scripts/setup_megatron_env.sh (installs TE + patches its multi-CUDA cudart probe).
 
 # --- model (Qwen3-14B: GQA + QK-norm + SwiGLU + RoPE, no biases) ---
 --num-layers 40
