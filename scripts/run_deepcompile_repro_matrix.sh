@@ -130,6 +130,11 @@ for framework in $frameworks; do
       mkdir -p "$results_dir"
 
       echo ">>> [$cell_index] $cell_id warmup=$warmup measured=$measured_steps port=$port"
+      # fsdp/deepspeed/deepcompile run the colleague's run.sh, which calls bare
+      # `accelerate`/`python` (PATH-resolved). Pin them to .venv-ds so the run doesn't
+      # depend on which env happens to be active. megatron/torchtitan launchers manage
+      # their own venvs, so leave PATH alone for them (ds_path empty).
+      ds_path=""
       case "$framework" in
         megatron|torchtitan)
           # External frameworks: run via their own launcher (own venv), same knobs.
@@ -148,6 +153,7 @@ for framework in $frameworks; do
           )
           ;;
         *)
+          ds_path="${DS_VENV:-$PWD/.venv-ds}/bin"
           cmd=(
             bash ./run.sh
               --model "$model"
@@ -172,9 +178,9 @@ for framework in $frameworks; do
       printf '\n' >> "$results_dir/command.txt"
 
       if [[ "$cell_timeout_s" != "0" ]] && command -v timeout >/dev/null 2>&1; then
-        MAIN_PROCESS_PORT="$port" NGPUS_PER_NODE="$nproc" timeout "$cell_timeout_s" "${cmd[@]}" >"$results_dir/train.log" 2>&1
+        PATH="${ds_path:+$ds_path:}$PATH" MAIN_PROCESS_PORT="$port" NGPUS_PER_NODE="$nproc" timeout "$cell_timeout_s" "${cmd[@]}" >"$results_dir/train.log" 2>&1
       else
-        MAIN_PROCESS_PORT="$port" NGPUS_PER_NODE="$nproc" "${cmd[@]}" >"$results_dir/train.log" 2>&1
+        PATH="${ds_path:+$ds_path:}$PATH" MAIN_PROCESS_PORT="$port" NGPUS_PER_NODE="$nproc" "${cmd[@]}" >"$results_dir/train.log" 2>&1
       fi
       rc=$?
       printf '{"return_code": %s}\n' "$rc" > "$results_dir/runner-status.json"
