@@ -67,8 +67,12 @@ ac_args=()
 if [[ "$AC" == "1" ]]; then
   ac_args=(--recompute-granularity full --recompute-method uniform --recompute-num-layers 1)
 fi
+# Pick the args file from the model name: Qwen/Qwen3-30B-A3B -> qwen3_30b_a3b.args, etc.
+model_slug="$(basename "$MODEL" | tr 'A-Z-' 'a-z_')"
+args_file="configs/megatron/${model_slug}.args"
+[[ -f "$args_file" ]] || { echo "ERROR: no Megatron args for model '$MODEL' (expected $args_file)" >&2; exit 2; }
 # shellcheck disable=SC2207
-MA=( $(grep -vE '^\s*(#|$)' configs/megatron/qwen3_14b.args) )
+MA=( $(grep -vE '^\s*(#|$)' "$args_file") )
 
 echo "[run_megatron] model=$MODEL mb=$BATCH seq=$SEQ gbs=$global_batch iters=$BENCH_STEP ac=$AC nproc=$NGPUS_PER_NODE"
 

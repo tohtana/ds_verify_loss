@@ -51,8 +51,11 @@ global_batch=$(( BATCH * NGPUS_PER_NODE * GAS ))
 # `activation-checkpoint:none` -> parallelize.py skips AC entirely. Drive it off our
 # --activation_checkpointing flag so the matrix's --ac knob reaches torchtitan too.
 if [[ "$AC" == "1" ]]; then TT_AC="activation-checkpoint:full"; else TT_AC="activation-checkpoint:none"; fi
+# Pick the torchtitan config-name + optional flags from the model name:
+# Qwen/Qwen3-30B-A3B -> qwen3_30b_a3b (matches torchtitan's registered config names).
+model_slug="$(basename "$MODEL" | tr 'A-Z-' 'a-z_')"
 # shellcheck disable=SC2207
-EXTRA=( $(grep -vE '^\s*(#|$)' configs/torchtitan/qwen3_14b.flags 2>/dev/null) )
+EXTRA=( $(grep -vE '^\s*(#|$)' "configs/torchtitan/${model_slug}.flags" 2>/dev/null) )
 
 echo "[run_torchtitan] model=$MODEL mb=$BATCH seq=$SEQ gbs=$global_batch steps=$BENCH_STEP ac=$([[ "$AC" == "1" ]] && echo full || echo none) nproc=$NGPUS_PER_NODE"
 
@@ -64,7 +67,7 @@ trap 'kill "$sampler" 2>/dev/null' EXIT
 cd "$repo_root/third_party/torchtitan"
 set +e
 "$PY" -m torch.distributed.run --standalone --nproc_per_node="$NGPUS_PER_NODE" \
-  -m torchtitan.train --module qwen3 --config qwen3_14b \
+  -m torchtitan.train --module qwen3 --config "$model_slug" \
   --training.steps "$BENCH_STEP" --training.seq_len "$SEQ" \
   --training.local_batch_size "$BATCH" --training.global_batch_size "$global_batch" \
   --parallelism.data_parallel_shard_degree "$NGPUS_PER_NODE" \

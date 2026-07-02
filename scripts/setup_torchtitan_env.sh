@@ -30,11 +30,16 @@ uv pip install -p "$PY" --pre torch --index-url "https://download.pytorch.org/wh
 # this keeps it robust if torch and the pinned torchtitan commit drift).
 "$PY" scripts/patch_torchtitan.py
 
-# torchtitan's qwen3_14b config uses the C4 dataset + the Qwen3-14B tokenizer.
-# Qwen is NOT gated (no HF token). Paths are relative to the torchtitan root.
-echo ">> downloading Qwen3-14B tokenizer assets"
-( cd third_party/torchtitan && "$PY" scripts/download_hf_assets.py --repo_id Qwen/Qwen3-14B --assets tokenizer ) || \
-  echo "WARN: tokenizer download failed — torchtitan will error until assets/hf/Qwen3-14B exists"
+# torchtitan's qwen3_* configs use the C4 dataset + the per-model tokenizer at
+# assets/hf/<repo>. Qwen is NOT gated (no HF token). Each qwen3_configs entry hard-codes
+# its own hf_assets_path, so every benchmarked model needs its tokenizer (all identical
+# Qwen tokenizers, but torchtitan looks them up by model dir). Paths relative to the
+# torchtitan root.
+for repo in Qwen/Qwen3-14B Qwen/Qwen3-32B Qwen/Qwen3-30B-A3B; do
+  echo ">> downloading $repo tokenizer assets"
+  ( cd third_party/torchtitan && "$PY" scripts/download_hf_assets.py --repo_id "$repo" --assets tokenizer ) || \
+    echo "WARN: tokenizer download failed for $repo — torchtitan will error until assets/hf/${repo#*/} exists"
+done
 
 "$PY" -c "import torch; print('torch', torch.__version__)"
 echo "OK: TorchTitan venv at $VENV"

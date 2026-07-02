@@ -76,7 +76,10 @@ if [[ -z "$nproc" ]]; then
 fi
 
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
-run_root="${results_root}/${timestamp}-qwen3-14b-8xh100-repro"
+# Model-derived slug so different models don't collide in one qwen3-14b dir:
+# Qwen/Qwen3-30B-A3B -> qwen3-30b-a3b.
+model_slug="$(basename "$model" | tr 'A-Z' 'a-z')"
+run_root="${results_root}/${timestamp}-${model_slug}-8xh100-repro"
 mkdir -p "$run_root"
 
 {

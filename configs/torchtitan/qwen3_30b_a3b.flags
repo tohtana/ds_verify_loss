@@ -1,0 +1,4 @@
+# Optional static torchtitan overrides applied on top of the registered `qwen3_30b_a3b`
+# (MoE) config, appended by scripts/run_torchtitan.sh. The launcher already sets the
+# per-cell knobs (steps/seq_len/local_batch_size/global_batch_size, data_parallel_shard_degree,
+# activation checkpointing), so this file is normally empty. One flag per line to customize.

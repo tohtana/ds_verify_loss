@@ -167,10 +167,12 @@ def write_tables(cells: dict[tuple[str, int, int], dict[str, Any]], out: Path) -
     lines = ["# Reproduction Matrix Summary", ""]
     for framework in FRAMEWORKS:
         lines.extend([f"## {framework}", ""])
+        # Memory intentionally not reported: it's measured with two different rulers
+        # (torch allocator stats for fsdp/deepspeed/deepcompile vs NVML device-used peak
+        # for megatron/torchtitan), so it isn't comparable across frameworks. Raw numbers
+        # still land in matrix-long.csv for anyone who wants them.
         for metric, title in [
             ("avg_step_time_sec", "average measured step time (s)"),
-            ("peak_alloc_gib", "cross-rank peak allocated (GiB)"),
-            ("peak_reserved_gib", "cross-rank peak reserved (GiB)"),
         ]:
             lines.extend([f"### {title}", ""])
             lines.append("| mb \\ seq | " + " | ".join(str(seq) for seq in seqs) + " |")
@@ -194,7 +196,6 @@ def write_ratios(cells: dict[tuple[str, int, int], dict[str, Any]], out: Path) -
         lines.extend([f"## {numerator} / {denominator}", ""])
         for metric, title in [
             ("avg_step_time_sec", "step time"),
-            ("peak_alloc_gib", "peak allocated"),
         ]:
             lines.extend([f"### {title}", ""])
             lines.append("| mb \\ seq | " + " | ".join(str(seq) for seq in seqs) + " |")
