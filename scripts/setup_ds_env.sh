@@ -26,9 +26,15 @@ uv pip install -p "$PY" "transformers==4.51.3" accelerate datasets wandb setupto
     einops hjson msgpack ninja numpy packaging psutil py-cpuinfo pydantic tqdm nvidia-ml-py \
     scipy   # scipy: DeepCompile's communication profiler
 
-# DeepSpeed master (has DeepCompile). JIT-compiles ops at runtime, so the install is
-# just the Python package. --no-deps per the repo README (deps installed above).
-uv pip install -p "$PY" --no-deps "git+https://github.com/deepspeedai/DeepSpeed.git@master"
+# DeepSpeed from the third_party/DeepSpeed submodule (origin = your fork
+# pengdurice/DeepSpeed, upstream = deepspeedai/DeepSpeed; has DeepCompile), installed
+# EDITABLE so your DeepSpeed edits are picked up without reinstalling. JIT-compiles ops
+# at runtime, so the install is just the Python package. --no-deps per the repo README
+# (deps installed above). --no-build-isolation + a GPU are required (setup.py imports the
+# accelerator), so run this on a GPU node. Rebase your fork on latest upstream with:
+#   cd third_party/DeepSpeed && git fetch upstream master \
+#     && git merge --ff-only upstream/master && git push origin master
+uv pip install -p "$PY" --no-deps --no-build-isolation -e third_party/DeepSpeed
 
 "$PY" -c "import torch,accelerate,transformers,deepspeed,datasets,huggingface_hub as h; \
 print('torch',torch.__version__,'| transformers',transformers.__version__,'| deepspeed',deepspeed.__version__)"
