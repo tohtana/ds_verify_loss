@@ -7,4 +7,4 @@
 	url = https://github.com/NVIDIA/Megatron-LM.git
 [submodule "third_party/DeepSpeed"]
 	path = third_party/DeepSpeed
-	url = git@github-personal:pengdurice/DeepSpeed.git
+	url = https://github.com/deepspeedai/DeepSpeed.git
