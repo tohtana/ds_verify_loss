@@ -79,7 +79,16 @@ timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 # Model-derived slug so different models don't collide in one qwen3-14b dir:
 # Qwen/Qwen3-30B-A3B -> qwen3-30b-a3b.
 model_slug="$(basename "$model" | tr 'A-Z' 'a-z')"
-run_root="${results_root}/${timestamp}-${model_slug}-8xh100-repro"
+# Auto-detect the GPU so the run dir is labeled accurately (h100 vs h200 vs ...),
+# instead of a hardcoded tag. Override with HW_TAG=... if detection is wrong.
+if [[ -z "${HW_TAG:-}" ]]; then
+  gpu_name="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)"
+  case "$gpu_name" in
+    *H200*) HW_TAG=h200 ;; *H100*) HW_TAG=h100 ;; *B200*) HW_TAG=b200 ;;
+    *A100*) HW_TAG=a100 ;; *) HW_TAG="$(echo "${gpu_name:-gpu}" | tr ' A-Z' '-a-z' | tr -cd 'a-z0-9-')" ;;
+  esac
+fi
+run_root="${results_root}/${timestamp}-${model_slug}-${nproc}x${HW_TAG}-repro"
 mkdir -p "$run_root"
 
 {

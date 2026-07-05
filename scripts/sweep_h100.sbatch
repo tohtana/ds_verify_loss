@@ -49,4 +49,4 @@ run_model Qwen/Qwen3-14B      "${FW_14B:-fsdp deepspeed deepcompile torchtitan m
 run_model Qwen/Qwen3-32B      "${FW_32B:-fsdp deepspeed torchtitan megatron}"
 run_model Qwen/Qwen3-30B-A3B  "${FW_30B:-fsdp deepspeed torchtitan megatron}"
 
-echo "=== ALL DONE $(date -u). Results: repro_matrix_runs/*-8xh100-repro/ ==="
+echo "=== ALL DONE $(date -u). Results: repro_matrix_runs/*-8xh100-repro/ (tag auto-detected) ==="
