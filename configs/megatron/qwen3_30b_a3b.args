@@ -1,0 +1,82 @@
+# Static Megatron-LM (core_v0.18.0) args for Qwen3-30B-A3B (MoE), used by
+# scripts/run_megatron.sh. The launcher appends the PER-CELL knobs (--micro-batch-size,
+# --global-batch-size, --seq-length, --train-iters, recompute flags).
+#
+# TransformerEngine path (TE fused attention + TENorm + TE grouped-GEMM experts).
+# Arch from HF Qwen/Qwen3-30B-A3B config.json: 48L, hidden 2048, GQA 32/4, head_dim 128,
+# 128 experts top-8 (all layers MoE, no shared expert), moe_intermediate 768.
+#
+# Expert parallelism is OFF (--expert-model-parallel-size 1): Megatron-FSDP shards the
+# expert params across DP just like dense weights, matching how FSDP/DeepSpeed ZeRO-3
+# shard the whole model (no expert-parallel all-to-all) -> apples-to-apples.
+
+# --- model (Qwen3-30B-A3B attention: GQA 32/4, head_dim 128, SwiGLU, QK-norm, RoPE 1e6) ---
+--num-layers 48
+--hidden-size 2048
+--ffn-hidden-size 6144
+--num-attention-heads 32
+--kv-channels 128
+--group-query-attention
+--num-query-groups 4
+--max-position-embeddings 40960
+--position-embedding-type rope
+--use-rotary-position-embeddings
+--rotary-base 1000000
+--rotary-percent 1.0
+--normalization RMSNorm
+--norm-epsilon 1e-6
+--qk-layernorm
+--swiglu
+--disable-bias-linear
+--untie-embeddings-and-output-weights
+--attention-dropout 0.0
+--hidden-dropout 0.0
+--no-masked-softmax-fusion
+--attention-softmax-in-fp32
+--vocab-size 151936
+--make-vocab-size-divisible-by 128
+
+# --- MoE (128 experts, top-8, all layers, softmax router w/ top-k renorm, no shared expert) ---
+--num-experts 128
+--moe-ffn-hidden-size 768
+--moe-router-topk 8
+--moe-router-pre-softmax
+--moe-router-load-balancing-type aux_loss
+--moe-aux-loss-coeff 1e-3
+--moe-grouped-gemm
+--moe-token-dispatcher-type alltoall
+--expert-model-parallel-size 1
+
+# --- implementation: TransformerEngine (fused attention + TENorm + grouped-GEMM) ---
+--transformer-impl transformer_engine
+--no-gradient-accumulation-fusion
+
+# --- parallelism: Megatron-FSDP (fully shards params+grads+optimizer = ZeRO-3 equiv) ---
+--tensor-model-parallel-size 1
+--pipeline-model-parallel-size 1
+--use-megatron-fsdp
+--data-parallel-sharding-strategy optim_grads_params
+--init-model-with-meta-device
+--fsdp-double-buffer
+--ckpt-format fsdp_dtensor
+
+# --- precision / optimizer ---
+--bf16
+--optimizer adam
+--adam-beta1 0.9
+--adam-beta2 0.95
+--lr 1e-4
+--min-lr 1e-5
+--lr-decay-style cosine
+--lr-warmup-iters 0
+--clip-grad 1.0
+
+# --- data: synthetic, no files / tokenizer needed ---
+--mock-data
+--tokenizer-type NullTokenizer
+
+# --- logging (step time parsed from 'elapsed time per iteration (ms)') ---
+--log-interval 1
+--log-throughput
+--eval-iters 0
+--eval-interval 1000

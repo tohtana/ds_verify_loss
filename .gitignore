@@ -6,3 +6,7 @@ __pycache__
 *.pyc
 *.pkl
 results_*
+
+# Per-framework venvs (recreate with scripts/setup_*_env.sh)
+.venv*/
+repro_matrix_runs/

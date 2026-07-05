@@ -1,0 +1,71 @@
+# Static Megatron-LM (core_v0.18.0) args for Qwen3-14B, used by scripts/run_megatron.sh.
+# The launcher appends the PER-CELL knobs: --micro-batch-size, --global-batch-size,
+# --seq-length, --train-iters, and the recompute (activation-checkpointing) flags.
+#
+# This uses the TransformerEngine path (--transformer-impl transformer_engine below):
+# TE fused attention (cuDNN) + TENorm — the representative, optimized Megatron path.
+# See scripts/setup_megatron_env.sh (installs TE + patches its multi-CUDA cudart probe).
+
+# --- model (Qwen3-14B: GQA + QK-norm + SwiGLU + RoPE, no biases) ---
+--num-layers 40
+--hidden-size 5120
+--ffn-hidden-size 17408
+--num-attention-heads 40
+--kv-channels 128
+--group-query-attention
+--num-query-groups 8
+--max-position-embeddings 40960
+--position-embedding-type rope
+--use-rotary-position-embeddings
+--rotary-base 1000000
+--rotary-percent 1.0
+--normalization RMSNorm
+--norm-epsilon 1e-6
+--qk-layernorm
+--swiglu
+--disable-bias-linear
+--untie-embeddings-and-output-weights
+--attention-dropout 0.0
+--hidden-dropout 0.0
+--no-masked-softmax-fusion
+--attention-softmax-in-fp32
+--vocab-size 151936
+--make-vocab-size-divisible-by 128
+
+# --- implementation: TransformerEngine (fused attention + TENorm) — the
+#     representative Megatron path (handles RMSNorm/qk-layernorm/rope/swiglu fusion,
+#     so none of the local-impl workarounds are needed). ---
+--transformer-impl transformer_engine
+# Megatron-FSDP still requires gradient-accumulation-fusion off.
+--no-gradient-accumulation-fusion
+
+# --- parallelism: Megatron-FSDP (fully shards params+grads+optimizer = ZeRO-3 equiv) ---
+--tensor-model-parallel-size 1
+--pipeline-model-parallel-size 1
+--use-megatron-fsdp
+--data-parallel-sharding-strategy optim_grads_params
+--init-model-with-meta-device
+--fsdp-double-buffer
+# Megatron-FSDP asserts this checkpoint format even when not saving.
+--ckpt-format fsdp_dtensor
+
+# --- precision / optimizer ---
+--bf16
+--optimizer adam
+--adam-beta1 0.9
+--adam-beta2 0.95
+--lr 1e-4
+--min-lr 1e-5
+--lr-decay-style cosine
+--lr-warmup-iters 0
+--clip-grad 1.0
+
+# --- data: synthetic, no files / tokenizer needed ---
+--mock-data
+--tokenizer-type NullTokenizer
+
+# --- logging (step time parsed from 'elapsed time per iteration (ms)') ---
+--log-interval 1
+--log-throughput
+--eval-iters 0
+--eval-interval 1000
