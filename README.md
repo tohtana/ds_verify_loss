@@ -2,6 +2,45 @@
 
 The scripts in this repository run training using DeepSpeed with different settings. They also plots loss curves and iteration times for comparison.
 
+## Alpamayo2-Super FSDP versus ZeRO-3 throughput
+
+`alpamayo2_benchmark.py` is a thin, purpose-built adapter for a reproducible
+single-node, eight-H100 training-throughput comparison. It loads the complete
+`nvidia/Alpamayo2-Super` checkpoint at revision
+`00554695e729a6ff0b6281fd2c81b18d06e33dbe`, makes the 32B VLM trainable, and
+keeps the 2.3B diffusion expert frozen. The documented training-style
+`Alpamayo2Super.forward` path does not invoke the expert; this benchmark does
+not claim to train it and does not evaluate quality or convergence.
+
+The two rows use micro-batch one per rank, gradient accumulation one, AdamW at
+`1e-6`, activation checkpointing, SDPA, BF16 autocast, one warmup step, and
+three measured synchronized end-to-end train steps. FSDP uses `FULL_SHARD`
+with an explicit `Qwen3VLTextDecoderLayer` wrap policy. DeepSpeed uses ZeRO-3
+and the low-precision state plus `torch_autocast` fields in
+`configs/alpamayo2_zero3.json`.
+
+Set the following to a checkout of NVlabs/alpamayo2 at revision
+`beb2977d9a7e9d66837d4a3ad5144ff59de37519`, a mount-backed cache with at least
+100 GB free, and a persistent output directory, respectively:
+
+```bash
+export ALPAMAYO2_SOURCE_REPO=/path/to/alpamayo2
+export ALPAMAYO2_CACHE_ROOT=/path/to/large-cache
+export ALPAMAYO2_OUTPUT_ROOT=/path/to/results
+export DEEPSPEED_REVISION=79046032e5d6800a547348f6b0c7b3e1f112e5ce
+scripts/run_alpamayo2_benchmark.sh
+```
+
+The launcher refuses any shape other than exactly eight visible H100s and uses
+non-default distributed port `29673`. It first tries the official gated
+PhysicalAI-AV validation sample. When the runtime lacks authorized dataset
+access, it records the error and uses a deterministic batch of six public COCO
+validation images repeated over four historical frames with synthetic valid
+egomotion/future-trajectory tensors. Batch preparation and all downloads are
+outside the timed window. JSON results contain max-rank step times, mean,
+median, samples/s, per-rank and global peak CUDA memory, effective backend
+settings, source identities, and exact-stage failure records.
+
 ## Usage
 
 ### 1. Run training
@@ -277,4 +316,3 @@ Install with:
 ```bash
 pip install matplotlib seaborn pandas numpy
 ```
-
