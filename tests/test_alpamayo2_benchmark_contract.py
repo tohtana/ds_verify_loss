@@ -97,3 +97,6 @@ def test_effective_backend_policy_is_explicit() -> None:
     assert "model.vlm.requires_grad_(True)" in source
     assert "model.expert.requires_grad_(False)" in source
     assert "not invoked by Alpamayo2Super.forward" in source
+    assert "config._name_or_path = model_path" in source
+    assert "config.vlm_name_or_path = model_path" in source
+    assert source.count("load_bound_config(args.model_path)") == 2

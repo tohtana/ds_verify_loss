@@ -124,12 +124,23 @@ def official_data() -> tuple[dict[str, Any], dict[str, Any]]:
     }
 
 
-def tokenize_batch(data: dict[str, Any], model_path: str) -> dict[str, Any]:
-    from alpamayo2_super.chat_template.conversation import build_conversation
-    from alpamayo2_super.config import Alpamayo2SuperConfig, build_alpamayo2_super_tokenizer
-    from alpamayo2_super.helper import get_processor
+def load_bound_config(model_path: str) -> Any:
+    from alpamayo2_super.config import Alpamayo2SuperConfig
 
     config = Alpamayo2SuperConfig.from_pretrained(model_path, local_files_only=True)
+    # The release config stores empty path fields; official tokenization and model
+    # construction resolve their tokenizer/processor through these fields.
+    config._name_or_path = model_path
+    config.vlm_name_or_path = model_path
+    return config
+
+
+def tokenize_batch(data: dict[str, Any], model_path: str) -> dict[str, Any]:
+    from alpamayo2_super.chat_template.conversation import build_conversation
+    from alpamayo2_super.config import build_alpamayo2_super_tokenizer
+    from alpamayo2_super.helper import get_processor
+
+    config = load_bound_config(model_path)
     tokenizer = build_alpamayo2_super_tokenizer(
         model_path, config.history_vocab_size, config.future_vocab_size
     )
@@ -223,7 +234,6 @@ def set_training_scope(model: torch.nn.Module) -> tuple[int, int]:
 
 def load_fsdp(args: argparse.Namespace, rank: int, device: torch.device) -> tuple[Any, Any, dict]:
     from accelerate import init_empty_weights
-    from alpamayo2_super.config import Alpamayo2SuperConfig
     from alpamayo2_super.models.alpamayo2_super import Alpamayo2Super
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
     from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
@@ -231,17 +241,18 @@ def load_fsdp(args: argparse.Namespace, rank: int, device: torch.device) -> tupl
     from transformers.models.qwen3_vl.modeling_qwen3_vl import Qwen3VLTextDecoderLayer
     import functools
 
+    config = load_bound_config(args.model_path)
+    config.vlm_config._attn_implementation = "sdpa"
     if rank == 0:
         model = Alpamayo2Super.from_pretrained(
             args.model_path,
+            config=config,
             dtype=torch.bfloat16,
             attn_implementation="sdpa",
             low_cpu_mem_usage=True,
             local_files_only=True,
         )
     else:
-        config = Alpamayo2SuperConfig.from_pretrained(args.model_path, local_files_only=True)
-        config.vlm_config._attn_implementation = "sdpa"
         with init_empty_weights():
             model = Alpamayo2Super(config)
     trainable, total = set_training_scope(model)
@@ -286,8 +297,11 @@ def load_deepspeed(args: argparse.Namespace) -> tuple[Any, Any, dict]:
 
     config = json.loads(Path(args.deepspeed_config).read_text(encoding="utf-8"))
     hf_zero3 = HfDeepSpeedConfig(config)
+    model_config = load_bound_config(args.model_path)
+    model_config.vlm_config._attn_implementation = "sdpa"
     model = Alpamayo2Super.from_pretrained(
         args.model_path,
+        config=model_config,
         dtype=torch.bfloat16,
         attn_implementation="sdpa",
         low_cpu_mem_usage=True,
