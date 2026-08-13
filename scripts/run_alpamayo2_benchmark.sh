@@ -34,7 +34,8 @@ python -m pip install 'torchvision==0.25.0' --index-url https://download.pytorch
 python -m pip install --upgrade \
     'transformers==4.57.1' 'accelerate>=1.12.0,<2' 'huggingface-hub>=0.34.0,<1.0' \
     'hydra-core>=1.3.2' 'hydra-colorlog>=1.2.0' 'physical-ai-av>=0.2.0' \
-    'av>=16.0.1' 'einops>=0.8.1' 'mediapy>=1.2.4' 'pillow>=12.0.0' 'scipy>=1.16.0'
+    'av>=16.0.1' 'einops>=0.8.1' 'mediapy>=1.2.4' 'pillow>=12.0.0' 'scipy>=1.16.0' \
+    hjson ninja nvidia-ml-py py-cpuinfo
 python -m pip install --no-deps -e "${ALPAMAYO2_SOURCE_REPO}"
 
 MODEL_PATH="${ALPAMAYO2_CACHE_ROOT}/models/alpamayo2-super-${MODEL_REVISION}"

@@ -26,12 +26,12 @@ CAMERA_IDS = (0, 1, 2, 3, 5, 6)
 CLIP_ID = "030c760c-ae38-49aa-9ad8-f5650a545d26"
 T0_US = 5_100_000
 COCO_URLS = (
-    "https://images.cocodataset.org/val2017/000000039769.jpg",
-    "https://images.cocodataset.org/val2017/000000397133.jpg",
-    "https://images.cocodataset.org/val2017/000000252219.jpg",
-    "https://images.cocodataset.org/val2017/000000087038.jpg",
-    "https://images.cocodataset.org/val2017/000000174482.jpg",
-    "https://images.cocodataset.org/val2017/000000403385.jpg",
+    "http://images.cocodataset.org/val2017/000000039769.jpg",
+    "http://images.cocodataset.org/val2017/000000397133.jpg",
+    "http://images.cocodataset.org/val2017/000000252219.jpg",
+    "http://images.cocodataset.org/val2017/000000087038.jpg",
+    "http://images.cocodataset.org/val2017/000000174482.jpg",
+    "http://images.cocodataset.org/val2017/000000403385.jpg",
 )
 TRAINING_SCOPE = (
     "full official checkpoint loaded; 32B VLM trainable; 2.3B diffusion expert frozen and "
