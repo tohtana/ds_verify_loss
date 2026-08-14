@@ -33,7 +33,7 @@ while still consuming all 1,000 samples exactly once over 125 optimizer steps.
 
 Set the following to clean checkouts of NVlabs/alpamayo2 at revision
 `beb2977d9a7e9d66837d4a3ad5144ff59de37519` and DeepSpeed at revision
-`79046032e5d6800a547348f6b0c7b3e1f112e5ce`, the immutable prepared shared-asset
+`f406908b9281607acaea52a3408162955d320856`, the immutable prepared shared-asset
 root, and a persistent output directory, respectively. The shared root must
 contain `asset-preparation-manifest.json`, the checkpoint `.complete.json`, and
 the prepared COCO dataset manifest and JSONL files. The launcher installs

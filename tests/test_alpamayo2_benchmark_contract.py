@@ -382,20 +382,20 @@ def test_attempt_zero_step_counts_are_fixed() -> None:
 
 
 def test_deepspeed_import_identity_accepts_pinned_short_hash(tmp_path: Path) -> None:
-    full_revision = "79046032e5d6800a547348f6b0c7b3e1f112e5ce"
+    full_revision = "f406908b9281607acaea52a3408162955d320856"
     source_root = tmp_path / "DeepSpeed"
     imported_path = source_root / "deepspeed" / "__init__.py"
     benchmark.validate_deepspeed_import_identity(
         full_revision,
-        "79046032",
+        "f406908b",
         source_root,
-        "79046032",
+        "f406908b",
         imported_path,
     )
     with pytest.raises(RuntimeError, match="imported DeepSpeed revision mismatch"):
         benchmark.validate_deepspeed_import_identity(
             full_revision,
-            "79046032",
+            "f406908b",
             source_root,
             full_revision,
             imported_path,
