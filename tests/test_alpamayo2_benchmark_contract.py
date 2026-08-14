@@ -47,6 +47,7 @@ def test_zero3_precision_contract() -> None:
         "bf16_optimizer_states": True,
     }
     assert config["torch_autocast"] == {"enabled": True, "dtype": "bfloat16"}
+    assert "steps_per_print" not in config
     assert "offload_optimizer" not in config["zero_optimization"]
     assert "offload_param" not in config["zero_optimization"]
 
