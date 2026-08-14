@@ -318,9 +318,16 @@ def load_deepspeed(args: argparse.Namespace) -> tuple[Any, Any, dict]:
         optimizer=optimizer,
         config=config,
     )
+    effective_gradient_clipping = float(engine.gradient_clipping())
+    if effective_gradient_clipping != 0.0:
+        raise RuntimeError(
+            "DeepSpeed gradient clipping must be disabled to match FSDP; "
+            f"got {effective_gradient_clipping}"
+        )
     effective = {
         "backend": "deepspeed",
         "zero_stage": config["zero_optimization"]["stage"],
+        "gradient_clipping": effective_gradient_clipping,
         "bf16": config["bf16"],
         "torch_autocast": config["torch_autocast"],
         "activation_checkpointing": True,

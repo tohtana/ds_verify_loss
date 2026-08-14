@@ -30,6 +30,7 @@ def test_zero3_precision_contract() -> None:
     assert config["train_batch_size"] == 8
     assert config["train_micro_batch_size_per_gpu"] == 1
     assert config["gradient_accumulation_steps"] == 1
+    assert config["gradient_clipping"] == 0.0
     assert config["bf16"] == {
         "enabled": True,
         "bf16_master_weights_and_grads": True,
@@ -87,6 +88,12 @@ def test_public_launcher_guards_exact_hardware_and_port() -> None:
     assert "--nproc-per-node=8" in launcher
     assert "run_backend fsdp" in launcher
     assert "run_backend deepspeed" in launcher
+    assert "DEVDS_REPOS_DIR" not in launcher
+    assert 'DEEPSPEED_SOURCE_REPO:?' in launcher
+    assert 'pip install --no-deps -e "${DEEPSPEED_SOURCE_REPO}"' in launcher
+    assert 'deepspeed.__git_hash__' in launcher
+    assert 'imported DeepSpeed revision mismatch' in launcher
+    assert 'if [[ "${FSDP_STATUS}" != "0" || "${DEEPSPEED_STATUS}" != "0" ]]; then' in launcher
 
 
 def test_effective_backend_policy_is_explicit() -> None:
@@ -100,3 +107,5 @@ def test_effective_backend_policy_is_explicit() -> None:
     assert "config._name_or_path = model_path" in source
     assert "config.vlm_name_or_path = model_path" in source
     assert source.count("load_bound_config(args.model_path)") == 2
+    assert 'effective_gradient_clipping = float(engine.gradient_clipping())' in source
+    assert '"gradient_clipping": effective_gradient_clipping' in source

@@ -4,16 +4,25 @@ set -euo pipefail
 MODEL_ID="nvidia/Alpamayo2-Super"
 MODEL_REVISION="00554695e729a6ff0b6281fd2c81b18d06e33dbe"
 OFFICIAL_SOURCE_REVISION="beb2977d9a7e9d66837d4a3ad5144ff59de37519"
-DEEPSPEED_REVISION="${DEEPSPEED_REVISION:-79046032e5d6800a547348f6b0c7b3e1f112e5ce}"
+DEEPSPEED_REVISION="79046032e5d6800a547348f6b0c7b3e1f112e5ce"
 HARNESS_CANDIDATE_REVISION="${DS_VERIFY_LOSS_CANDIDATE_SHA:-unknown}"
 MASTER_PORT="${MASTER_PORT:-29673}"
 
 : "${ALPAMAYO2_SOURCE_REPO:?set ALPAMAYO2_SOURCE_REPO to the official source checkout}"
+: "${DEEPSPEED_SOURCE_REPO:?set DEEPSPEED_SOURCE_REPO to the pinned DeepSpeed source checkout}"
 : "${ALPAMAYO2_CACHE_ROOT:?set ALPAMAYO2_CACHE_ROOT to storage sized for the 72 GB checkpoint}"
 : "${ALPAMAYO2_OUTPUT_ROOT:?set ALPAMAYO2_OUTPUT_ROOT to persistent benchmark storage}"
 
 if [[ "$(git -C "${ALPAMAYO2_SOURCE_REPO}" rev-parse HEAD)" != "${OFFICIAL_SOURCE_REVISION}" ]]; then
     echo "official Alpamayo2 source revision mismatch" >&2
+    exit 2
+fi
+if [[ "$(git -C "${DEEPSPEED_SOURCE_REPO}" rev-parse HEAD)" != "${DEEPSPEED_REVISION}" ]]; then
+    echo "DeepSpeed source revision mismatch" >&2
+    exit 2
+fi
+if [[ -n "$(git -C "${DEEPSPEED_SOURCE_REPO}" status --porcelain)" ]]; then
+    echo "DeepSpeed source checkout must be clean" >&2
     exit 2
 fi
 if [[ "$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l | tr -d ' ')" != "8" ]]; then
@@ -37,6 +46,26 @@ python -m pip install --upgrade \
     'av>=16.0.1' 'einops>=0.8.1' 'mediapy>=1.2.4' 'pillow>=12.0.0' 'scipy>=1.16.0' \
     hjson ninja nvidia-ml-py py-cpuinfo
 python -m pip install --no-deps -e "${ALPAMAYO2_SOURCE_REPO}"
+python -m pip install --no-deps -e "${DEEPSPEED_SOURCE_REPO}"
+python - "${DEEPSPEED_REVISION}" "${DEEPSPEED_SOURCE_REPO}" <<'PY'
+import pathlib
+import sys
+
+import deepspeed
+
+expected_revision = sys.argv[1]
+source_root = pathlib.Path(sys.argv[2]).resolve()
+imported_revision = getattr(deepspeed, "__git_hash__", None)
+imported_path = pathlib.Path(deepspeed.__file__).resolve()
+if imported_revision != expected_revision:
+    raise SystemExit(
+        f"imported DeepSpeed revision mismatch: expected {expected_revision}, got {imported_revision}"
+    )
+if source_root not in imported_path.parents:
+    raise SystemExit(
+        f"DeepSpeed import does not resolve under {source_root}: {imported_path}"
+    )
+PY
 
 MODEL_PATH="${ALPAMAYO2_CACHE_ROOT}/models/alpamayo2-super-${MODEL_REVISION}"
 mkdir -p "${MODEL_PATH}"
@@ -69,7 +98,9 @@ print(json.dumps({
     "harness_checkout_revision": git("rev-parse", "HEAD"),
     "harness_effective_tree": git("write-tree"),
     "official_source_checkout_revision": git("-C", os.environ["ALPAMAYO2_SOURCE_REPO"], "rev-parse", "HEAD"),
-    "deepspeed_checkout_revision": git("-C", os.path.join(os.environ["DEVDS_REPOS_DIR"], "DeepSpeed"), "rev-parse", "HEAD"),
+    "deepspeed_source_checkout_revision": git("-C", os.environ["DEEPSPEED_SOURCE_REPO"], "rev-parse", "HEAD"),
+    "deepspeed_import_revision": deepspeed.__git_hash__,
+    "deepspeed_import_path": deepspeed.__file__,
     "python": platform.python_version(),
     "torch": torch.__version__,
     "transformers": transformers.__version__,
@@ -122,5 +153,7 @@ for artifact in "${RUN_DIR}"/*.json; do
     cat "${artifact}"
 done
 
-# Both exact-path attempts are evidence even when one or both fail.
-exit 0
+# Preserve both rows as evidence, but never report a successful launcher when a row failed.
+if [[ "${FSDP_STATUS}" != "0" || "${DEEPSPEED_STATUS}" != "0" ]]; then
+    exit 1
+fi

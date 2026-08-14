@@ -19,15 +19,17 @@ with an explicit `Qwen3VLTextDecoderLayer` wrap policy. DeepSpeed uses ZeRO-3
 and the low-precision state plus `torch_autocast` fields in
 `configs/alpamayo2_zero3.json`.
 
-Set the following to a checkout of NVlabs/alpamayo2 at revision
-`beb2977d9a7e9d66837d4a3ad5144ff59de37519`, a mount-backed cache with at least
-100 GB free, and a persistent output directory, respectively:
+Set the following to clean checkouts of NVlabs/alpamayo2 at revision
+`beb2977d9a7e9d66837d4a3ad5144ff59de37519` and DeepSpeed at revision
+`79046032e5d6800a547348f6b0c7b3e1f112e5ce`, a mount-backed cache with at least
+100 GB free, and a persistent output directory, respectively. The launcher
+installs DeepSpeed from that source and rejects a mismatched imported revision.
 
 ```bash
 export ALPAMAYO2_SOURCE_REPO=/path/to/alpamayo2
+export DEEPSPEED_SOURCE_REPO=/path/to/DeepSpeed
 export ALPAMAYO2_CACHE_ROOT=/path/to/large-cache
 export ALPAMAYO2_OUTPUT_ROOT=/path/to/results
-export DEEPSPEED_REVISION=79046032e5d6800a547348f6b0c7b3e1f112e5ce
 scripts/run_alpamayo2_benchmark.sh
 ```
 
