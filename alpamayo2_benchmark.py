@@ -326,6 +326,7 @@ def load_fsdp(args: argparse.Namespace, rank: int, device: torch.device) -> tupl
         "mixed_precision": "BF16 parameters/reductions/buffers",
         "autocast_dtype": "bfloat16",
         "use_orig_params": True,
+        "gradient_clearing": "optimizer.zero_grad(set_to_none=True)",
         "trainable_params": trainable,
         "total_params": total,
     }
@@ -374,6 +375,7 @@ def load_deepspeed(args: argparse.Namespace) -> tuple[Any, Any, dict]:
         "torch_autocast": config["torch_autocast"],
         "activation_checkpointing": True,
         "autocast_dtype": "bfloat16",
+        "gradient_clearing": "DeepSpeedEngine.step",
         "trainable_params": trainable,
         "total_params": total,
     }
@@ -419,6 +421,11 @@ def summarize_times(step_times: list[float], world_size: int) -> dict[str, float
     }
 
 
+def finite_loss_flag(loss: torch.Tensor) -> torch.Tensor:
+    """Return a scalar integer flag suitable for a distributed MIN reduction."""
+    return torch.isfinite(loss.detach()).all().to(dtype=torch.int32)
+
+
 def run_benchmark(args: argparse.Namespace) -> None:
     global CURRENT_STAGE
     rank, world_size, _, device = distributed_context()
@@ -457,12 +464,10 @@ def run_benchmark(args: argparse.Namespace) -> None:
         torch.cuda.synchronize(device)
         start = time.perf_counter()
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-            output = model(**inputs)
-            loss = output.loss
+            loss = model(**inputs).loss
         if args.backend == "deepspeed":
             model.backward(loss)
             model.step()
-            model.zero_grad()
         else:
             loss.backward()
             optimizer.step()
@@ -470,12 +475,19 @@ def run_benchmark(args: argparse.Namespace) -> None:
         torch.cuda.synchronize(device)
         local_elapsed = torch.tensor(time.perf_counter() - start, dtype=torch.float64, device=device)
         torch.distributed.all_reduce(local_elapsed, op=torch.distributed.ReduceOp.MAX)
+        loss_value = float(loss.detach().float().item())
+        loss_finite = finite_loss_flag(loss)
+        torch.distributed.all_reduce(loss_finite, op=torch.distributed.ReduceOp.MIN)
+        del loss
+        if int(loss_finite.item()) != 1:
+            raise FloatingPointError("non-finite loss observed on at least one rank")
+        del loss_finite
         if index + 1 == args.warmup_steps:
             torch.cuda.reset_peak_memory_stats(device)
             CURRENT_STAGE = "measured_train_step"
         elif index >= args.warmup_steps:
             measured_times.append(float(local_elapsed.item()))
-            losses.append(float(loss.detach().float().item()))
+            losses.append(loss_value)
             if rank == 0:
                 print(
                     f"MEASURED_STEP {index - args.warmup_steps + 1} "

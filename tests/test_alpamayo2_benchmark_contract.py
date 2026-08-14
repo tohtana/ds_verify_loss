@@ -110,6 +110,13 @@ def test_straggler_critical_summary_uses_global_batch() -> None:
     assert summary["samples_per_second"] == 4.0
 
 
+def test_non_finite_loss_flags_fail_closed() -> None:
+    assert benchmark.finite_loss_flag(torch.tensor(1.0)).item() == 1
+    assert benchmark.finite_loss_flag(torch.tensor(float("nan"))).item() == 0
+    assert benchmark.finite_loss_flag(torch.tensor(float("inf"))).item() == 0
+    assert benchmark.finite_loss_flag(torch.tensor(float("-inf"))).item() == 0
+
+
 def test_public_launcher_guards_exact_hardware_and_port() -> None:
     launcher = (ROOT / "scripts/run_alpamayo2_benchmark.sh").read_text()
     assert '!= "8"' in launcher
@@ -140,3 +147,8 @@ def test_effective_backend_policy_is_explicit() -> None:
     assert source.count("load_bound_config(args.model_path)") == 2
     assert 'effective_gradient_clipping = float(engine.gradient_clipping())' in source
     assert '"gradient_clipping": effective_gradient_clipping' in source
+    assert 'loss = model(**inputs).loss' in source
+    assert 'output = model(**inputs)' not in source
+    assert 'model.zero_grad()' not in source
+    assert '"gradient_clearing": "DeepSpeedEngine.step"' in source
+    assert 'del loss' in source
