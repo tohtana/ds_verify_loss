@@ -5,43 +5,91 @@ The scripts in this repository run training using DeepSpeed with different setti
 ## Alpamayo2-Super FSDP versus ZeRO-3 throughput
 
 `alpamayo2_benchmark.py` is a thin, purpose-built adapter for a reproducible
-single-node, eight-H100 training-throughput comparison. It loads the complete
-`nvidia/Alpamayo2-Super` checkpoint at revision
-`00554695e729a6ff0b6281fd2c81b18d06e33dbe`, makes the 32B VLM trainable, and
-keeps the 2.3B diffusion expert frozen. The documented training-style
-`Alpamayo2Super.forward` path does not invoke the expert; this benchmark does
-not claim to train it and does not evaluate quality or convergence.
+single-node, eight-H100 training-throughput comparison. It loads the 32B VLM
+weights from `nvidia/Alpamayo2-Super` revision
+`00554695e729a6ff0b6281fd2c81b18d06e33dbe`, makes the VLM trainable, and
+sets `enable_expert=false` before model construction. The 2.3B action expert is
+therefore not instantiated or loaded. This is a `vlm_train` execution-speed
+benchmark; its loss observations are numerical-debug evidence only, not a
+training-quality or convergence evaluation.
 
 The two rows use micro-batch one per rank, gradient accumulation one, AdamW at
 `1e-6`, activation checkpointing, SDPA, BF16 autocast, one warmup step, and
-three measured synchronized end-to-end train steps. FSDP uses `FULL_SHARD`
+124 measured synchronized end-to-end train steps. FSDP uses `FULL_SHARD`
 with an explicit `Qwen3VLTextDecoderLayer` wrap policy. DeepSpeed uses ZeRO-3
 and the low-precision state plus `torch_autocast` fields in
 `configs/alpamayo2_zero3.json`.
 
+The optional `deepspeed-deepcompile` lane retains that exact ZeRO-3 precision,
+optimizer, batch, and checkpointing contract and adds only
+`"compile": {"deepcompile": true}` through
+`configs/alpamayo2_zero3_deepcompile.json`. The runner calls
+`engine.compile()` after `deepspeed.initialize()` and fails if
+`engine.is_deepcompile_active()` is false. It passes no custom schedule: at the
+pinned DeepSpeed revision, the default ZeRO-3 schedule applies gather/release at
+global step 0 and gather/release plus prefetch and selective gather at global
+step 5. This lane warms up on optimizer steps 0-19 and measures steps 20-124,
+while still consuming all 1,000 samples exactly once over 125 optimizer steps.
+
 Set the following to clean checkouts of NVlabs/alpamayo2 at revision
 `beb2977d9a7e9d66837d4a3ad5144ff59de37519` and DeepSpeed at revision
-`79046032e5d6800a547348f6b0c7b3e1f112e5ce`, a mount-backed cache with at least
-100 GB free, and a persistent output directory, respectively. The launcher
-installs DeepSpeed from that source and rejects a mismatched imported revision.
+`79046032e5d6800a547348f6b0c7b3e1f112e5ce`, the immutable prepared shared-asset
+root, and a persistent output directory, respectively. The shared root must
+contain `asset-preparation-manifest.json`, the checkpoint `.complete.json`, and
+the prepared COCO dataset manifest and JSONL files. The launcher installs
+DeepSpeed from the pinned source and rejects a mismatched imported revision.
 
 ```bash
 export ALPAMAYO2_SOURCE_REPO=/path/to/alpamayo2
 export DEEPSPEED_SOURCE_REPO=/path/to/DeepSpeed
-export ALPAMAYO2_CACHE_ROOT=/path/to/large-cache
+export ALPAMAYO2_CACHE_ROOT=/path/to/prepared-assets
 export ALPAMAYO2_OUTPUT_ROOT=/path/to/results
+export ALPAMAYO2_RUN_ID=unique-run-id
+export ALPAMAYO2_LOCAL_STAGE_ROOT=/mnt/local_storage/alpamayo2/$ALPAMAYO2_RUN_ID
+export DS_VERIFY_LOSS_CANDIDATE_CONTENT_SHA256=<reviewed-content-digest>
 scripts/run_alpamayo2_benchmark.sh
 ```
 
+The command above keeps the existing default and runs FSDP followed by ordinary
+ZeRO-3. To run only the DeepCompile row without rerunning either baseline, use a
+fresh run-local path and add the lane selector:
+
+```bash
+export ALPAMAYO2_BENCHMARK_LANE=deepspeed-deepcompile
+export ALPAMAYO2_RUN_ID=unique-deepcompile-run-id
+export ALPAMAYO2_LOCAL_STAGE_ROOT=/mnt/local_storage/alpamayo2/$ALPAMAYO2_RUN_ID
+scripts/run_alpamayo2_benchmark.sh
+```
+
+Before processor construction or model loading, the launcher validates the
+prepared manifests and source files, checks node-local free space, copies the
+checkpoint and prepared COCO tree through a temporary directory, validates the
+copy, and atomically installs it at the required run-specific node-local root.
+`ALPAMAYO2_LOCAL_STAGE_ROOT` must be under the platform's node-local storage
+mount and end with the explicitly selected `ALPAMAYO2_RUN_ID`. Existing roots are rejected to
+avoid consuming partial data. Manifest-recorded checkpoint files, COCO source
+archives, and the 1,000 selected images are SHA-256 checked after copying; all
+other copied files are checked by relative path and size. The shared source is
+never changed or deleted. The launcher also checks the seven-file harness content
+digest against the reviewed deployment identity before staging begins.
+
 The launcher refuses any shape other than exactly eight visible H100s and uses
-non-default distributed port `29673`. It first tries the official gated
-PhysicalAI-AV validation sample. When the runtime lacks authorized dataset
-access, it records the error and uses a deterministic batch of six hash-pinned
-public COCO validation images, verified before decoding and repeated over four
-historical frames with synthetic valid egomotion/future-trajectory tensors.
-Batch preparation and all downloads are outside the timed window. JSON results contain max-rank step times, mean,
-median, samples/s, per-rank and global peak CUDA memory, effective backend
-settings, source identities, and exact-stage failure records.
+non-default distributed port `29673`. Before either backend starts, batch
+construction processes all 1,000 ordered COCO training records into a verified
+per-sample cache. At global step `s`, rank `r` consumes sample `8*s+r`, so each
+backend consumes every sample exactly once in identical order over 125 optimizer
+steps. Step 0 is warmup and steps 1-124 are measured. Cache reads,
+processor/tokenizer work, and device transfers are outside the synchronized
+train-step timer. The timer covers forward, backward, optimizer step, and
+gradient clearing and records the maximum rank duration. Model, dataset,
+processor/tokenizer assets, and batch caches resolve only under the run-local
+root after staging; offline modes prevent checkpoint redownloads. JSON results
+contain 124 max-rank step times, all 125 global-mean loss observations (with
+warmup marked), mean, median, samples/s, per-rank and global peak CUDA memory,
+effective backend settings, source identities, and exact-stage failures.
+For the DeepCompile lane, the result instead contains 105 measured times and
+records requested/configured/active state, the compile config, the pinned
+default-schedule assumption and transition steps, and both timing ranges.
 
 ## Usage
 
