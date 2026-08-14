@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import os
 import platform
@@ -33,6 +34,14 @@ COCO_URLS = (
     "http://images.cocodataset.org/val2017/000000174482.jpg",
     "http://images.cocodataset.org/val2017/000000403385.jpg",
 )
+COCO_SHA256 = {
+    "http://images.cocodataset.org/val2017/000000039769.jpg": "dea9e7ef97386345f7cff32f9055da4982da5471c48d575146c796ab4563b04e",
+    "http://images.cocodataset.org/val2017/000000397133.jpg": "09e1d25c75f7879bdaa69c327fece5cabacd53939c8c2ef9e87f1c97a2e478c4",
+    "http://images.cocodataset.org/val2017/000000252219.jpg": "1cf48bddb1bcab80d9f4d18514ae438c3e4f57d18e80c4fbea9d5d22396f514a",
+    "http://images.cocodataset.org/val2017/000000087038.jpg": "c6cfc7e454a432c31ac3c3a997d5f33ccebe120fc6b9465965609ce12995ede9",
+    "http://images.cocodataset.org/val2017/000000174482.jpg": "41fab00aad97dad3eb7d035420b8cc61ed0ca8f4f0b66a4fbc1bd0bba6f8a5b3",
+    "http://images.cocodataset.org/val2017/000000403385.jpg": "11632ed3fb470d62f7fe5f0445c4f10ec91225c4a820c95d1c3946af9426d4c7",
+}
 TRAINING_SCOPE = (
     "full official checkpoint loaded; 32B VLM trainable; 2.3B diffusion expert frozen and "
     "not invoked by Alpamayo2Super.forward"
@@ -73,12 +82,14 @@ def validate_deepspeed_import_identity(
         )
 
 
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+def validate_pinned_payload(payload: bytes, expected_sha256: str, identity: str) -> str:
+    actual_sha256 = hashlib.sha256(payload).hexdigest()
+    if actual_sha256 != expected_sha256:
+        raise RuntimeError(
+            f"pinned payload hash mismatch for {identity}: "
+            f"expected {expected_sha256}, got {actual_sha256}"
+        )
+    return actual_sha256
 
 
 def synthetic_trajectory() -> dict[str, torch.Tensor]:
@@ -104,14 +115,19 @@ def fallback_data(cache_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     records = []
     for url in COCO_URLS:
         path = image_dir / Path(url).name
-        if not path.exists():
+        if path.exists():
+            payload = path.read_bytes()
+        else:
             request = urllib.request.Request(url, headers={"User-Agent": "ds-verify-loss/benchmark"})
             with urllib.request.urlopen(request, timeout=60) as response:
-                path.write_bytes(response.read())
-        image = np.asarray(Image.open(path).convert("RGB")).copy()
+                payload = response.read()
+        digest = validate_pinned_payload(payload, COCO_SHA256[url], url)
+        if not path.exists():
+            path.write_bytes(payload)
+        image = np.asarray(Image.open(io.BytesIO(payload)).convert("RGB")).copy()
         tensor = torch.from_numpy(image).permute(2, 0, 1).contiguous()
         images.append(tensor.unsqueeze(0).repeat(4, 1, 1, 1))
-        records.append({"url": url, "sha256": sha256_file(path)})
+        records.append({"url": url, "sha256": digest})
 
     # The processor accepts different source resolutions, but stacking does not.
     height = min(int(image.shape[-2]) for image in images)

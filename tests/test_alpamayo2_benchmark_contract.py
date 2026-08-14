@@ -24,6 +24,16 @@ def test_identity_and_shape_contract() -> None:
     assert torch.isfinite(trajectory["ego_future_xyz"]).all()
 
 
+def test_public_fallback_payload_hashes_are_pinned_and_enforced() -> None:
+    assert set(benchmark.COCO_SHA256) == set(benchmark.COCO_URLS)
+    assert all(len(digest) == 64 for digest in benchmark.COCO_SHA256.values())
+    payload = b"reviewed image bytes"
+    digest = "638c3a15c2985658d92a10410a889547380bf8eb54d75f6b1c545064632a8615"
+    assert benchmark.validate_pinned_payload(payload, digest, "fixture") == digest
+    with pytest.raises(RuntimeError, match="pinned payload hash mismatch"):
+        benchmark.validate_pinned_payload(b"changed bytes", digest, "fixture")
+
+
 def test_zero3_precision_contract() -> None:
     config = json.loads((ROOT / "configs/alpamayo2_zero3.json").read_text())
     assert config["zero_optimization"]["stage"] == 3

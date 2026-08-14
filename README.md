@@ -36,10 +36,10 @@ scripts/run_alpamayo2_benchmark.sh
 The launcher refuses any shape other than exactly eight visible H100s and uses
 non-default distributed port `29673`. It first tries the official gated
 PhysicalAI-AV validation sample. When the runtime lacks authorized dataset
-access, it records the error and uses a deterministic batch of six public COCO
-validation images repeated over four historical frames with synthetic valid
-egomotion/future-trajectory tensors. Batch preparation and all downloads are
-outside the timed window. JSON results contain max-rank step times, mean,
+access, it records the error and uses a deterministic batch of six hash-pinned
+public COCO validation images, verified before decoding and repeated over four
+historical frames with synthetic valid egomotion/future-trajectory tensors.
+Batch preparation and all downloads are outside the timed window. JSON results contain max-rank step times, mean,
 median, samples/s, per-rank and global peak CUDA memory, effective backend
 settings, source identities, and exact-stage failure records.
 
