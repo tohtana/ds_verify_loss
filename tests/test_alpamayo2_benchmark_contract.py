@@ -72,6 +72,27 @@ def test_attempt_zero_step_counts_are_fixed() -> None:
         )
 
 
+def test_deepspeed_import_identity_accepts_pinned_short_hash(tmp_path: Path) -> None:
+    full_revision = "79046032e5d6800a547348f6b0c7b3e1f112e5ce"
+    source_root = tmp_path / "DeepSpeed"
+    imported_path = source_root / "deepspeed" / "__init__.py"
+    benchmark.validate_deepspeed_import_identity(
+        full_revision,
+        "79046032",
+        source_root,
+        "79046032",
+        imported_path,
+    )
+    with pytest.raises(RuntimeError, match="imported DeepSpeed revision mismatch"):
+        benchmark.validate_deepspeed_import_identity(
+            full_revision,
+            "79046032",
+            source_root,
+            full_revision,
+            imported_path,
+        )
+
+
 def test_straggler_critical_summary_uses_global_batch() -> None:
     summary = benchmark.summarize_times([2.0, 1.0, 3.0], world_size=8)
     assert summary["mean_step_seconds"] == 2.0
@@ -92,7 +113,7 @@ def test_public_launcher_guards_exact_hardware_and_port() -> None:
     assert 'DEEPSPEED_SOURCE_REPO:?' in launcher
     assert 'pip install --no-deps -e "${DEEPSPEED_SOURCE_REPO}"' in launcher
     assert 'deepspeed.__git_hash__' in launcher
-    assert 'imported DeepSpeed revision mismatch' in launcher
+    assert 'validate_deepspeed_import_identity' in launcher
     assert 'if [[ "${FSDP_STATUS}" != "0" || "${DEEPSPEED_STATUS}" != "0" ]]; then' in launcher
 
 

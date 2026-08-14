@@ -47,24 +47,24 @@ python -m pip install --upgrade \
     hjson ninja nvidia-ml-py py-cpuinfo
 python -m pip install --no-deps -e "${ALPAMAYO2_SOURCE_REPO}"
 python -m pip install --no-deps -e "${DEEPSPEED_SOURCE_REPO}"
-python - "${DEEPSPEED_REVISION}" "${DEEPSPEED_SOURCE_REPO}" <<'PY'
+DEEPSPEED_IMPORT_REVISION="$(git -C "${DEEPSPEED_SOURCE_REPO}" rev-parse --short HEAD)"
+python - "${DEEPSPEED_REVISION}" "${DEEPSPEED_IMPORT_REVISION}" "${DEEPSPEED_SOURCE_REPO}" <<'PY'
 import pathlib
 import sys
 
 import deepspeed
+from alpamayo2_benchmark import validate_deepspeed_import_identity
 
 expected_revision = sys.argv[1]
-source_root = pathlib.Path(sys.argv[2]).resolve()
-imported_revision = getattr(deepspeed, "__git_hash__", None)
-imported_path = pathlib.Path(deepspeed.__file__).resolve()
-if imported_revision != expected_revision:
-    raise SystemExit(
-        f"imported DeepSpeed revision mismatch: expected {expected_revision}, got {imported_revision}"
-    )
-if source_root not in imported_path.parents:
-    raise SystemExit(
-        f"DeepSpeed import does not resolve under {source_root}: {imported_path}"
-    )
+expected_import_revision = sys.argv[2]
+source_root = pathlib.Path(sys.argv[3])
+validate_deepspeed_import_identity(
+    expected_revision,
+    expected_import_revision,
+    source_root,
+    getattr(deepspeed, "__git_hash__", None),
+    pathlib.Path(deepspeed.__file__),
+)
 PY
 
 MODEL_PATH="${ALPAMAYO2_CACHE_ROOT}/models/alpamayo2-super-${MODEL_REVISION}"

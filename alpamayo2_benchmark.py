@@ -47,6 +47,32 @@ def atomic_json(path: Path, value: dict[str, Any]) -> None:
     temporary.replace(path)
 
 
+def validate_deepspeed_import_identity(
+    expected_full_revision: str,
+    expected_import_revision: str,
+    source_root: Path,
+    imported_revision: str | None,
+    imported_path: Path,
+) -> None:
+    """Validate the installed package against the pinned clean source checkout."""
+    source_root = source_root.resolve()
+    imported_path = imported_path.resolve()
+    if not expected_full_revision.startswith(expected_import_revision):
+        raise RuntimeError(
+            "DeepSpeed short revision is not a prefix of the pinned full revision: "
+            f"{expected_import_revision} versus {expected_full_revision}"
+        )
+    if imported_revision != expected_import_revision:
+        raise RuntimeError(
+            "imported DeepSpeed revision mismatch: "
+            f"expected {expected_import_revision}, got {imported_revision}"
+        )
+    if source_root not in imported_path.parents:
+        raise RuntimeError(
+            f"DeepSpeed import does not resolve under {source_root}: {imported_path}"
+        )
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
