@@ -2,8 +2,15 @@
 
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
+
+
+CODEX_MODEL = "gpt-5.6-sol"
+CODEX_REASONING_CONFIG = 'model_reasoning_effort="xhigh"'
+DEFAULT_CODEX_BIN = (Path(__file__).resolve().parent.parent / ".codex-cli" / "node_modules" / "@openai" /
+                     "codex-linux-x64" / "vendor" / "x86_64-unknown-linux-musl" / "bin" / "codex")
 
 
 def _iter_json_lines(raw_output):
@@ -40,17 +47,27 @@ def _extract_final_text(raw_output):
     return final_text
 
 
+def _resolve_codex_bin():
+    configured_path = os.environ.get("CODEX_BIN")
+    candidate = Path(configured_path).expanduser() if configured_path else DEFAULT_CODEX_BIN
+    candidate = candidate.resolve()
+    if not candidate.is_file() or not os.access(candidate, os.X_OK):
+        source = "CODEX_BIN" if configured_path else "the persistent Codex installation"
+        raise FileNotFoundError(f"Unable to resolve an executable Codex binary from {source}: {candidate}")
+    return str(candidate)
+
+
 def _build_command():
     command = [
-        os.environ.get("CODEX_BIN", "codex"),
+        _resolve_codex_bin(),
         "--dangerously-bypass-approvals-and-sandbox",
         "exec",
         "--json",
+        "-m",
+        CODEX_MODEL,
+        "-c",
+        CODEX_REASONING_CONFIG,
     ]
-
-    model = os.environ.get("CODEX_AGENT_MODEL")
-    if model:
-        command.extend(["-m", model])
 
     profile = os.environ.get("CODEX_AGENT_PROFILE")
     if profile:

@@ -24,8 +24,12 @@
         "sync_before_reduce": {{ sync_before_reduce }},
         "sync_after_reduce": {{ sync_after_reduce }},
         "zero3_tuning_strategy": "{{ zero3_tuning_strategy }}",
+        "agent_architecture": "{{ agent_architecture }}",
         "agent_command": {{ agent_command_json }},
+        "agent_evaluator_command": {{ agent_evaluator_command_json }},
+        "agent_optimizer_command": {{ agent_optimizer_command_json }},
         "agent_max_iterations": {{ agent_max_iterations }},
+        "agent_max_retries_per_iteration": {{ agent_max_retries_per_iteration }},
         "agent_timeout_sec": {{ agent_timeout_sec }}
     },
     "gradient_accumulation_steps": {{ gradient_accumulation_steps }},

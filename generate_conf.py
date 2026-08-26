@@ -34,7 +34,16 @@ def get_args():
                         choices=['codex'],
                         default=None,
                         help='External agent preset to use when zero3_tuning_strategy=agent')
+    parser.add_argument('--agent_architecture',
+                        type=str,
+                        choices=['two_agent'],
+                        default='two_agent',
+                        help='DeepCompile evaluator/optimizer architecture')
     parser.add_argument('--agent_max_iterations', type=int, default=3, help='Max tuning iterations for agent mode')
+    parser.add_argument('--agent_max_retries_per_iteration',
+                        type=int,
+                        default=1,
+                        help='Optimizer retries after a mechanical edit failure')
     parser.add_argument('--agent_timeout_sec', type=int, default=300, help='Per-invocation timeout for agent mode')
                         
     parser.add_argument('--template_file', type=Path, help='Template file')
@@ -65,6 +74,7 @@ def main(args):
         template = Template(f.read())
 
     agent_command_json = resolve_agent_command_json(args)
+    two_agent_command_json = agent_command_json
     with open(args.output_file, 'w') as f:
         f.write(template.render(machine_rank=args.machine_rank,
                                 num_machines=args.num_machines,
@@ -79,8 +89,12 @@ def main(args):
                                 sync_before_allgather=str(args.sync_before_allgather).lower(),
                                 sync_after_allgather=str(args.sync_after_allgather).lower(),
                                 zero3_tuning_strategy=args.zero3_tuning_strategy,
+                                agent_architecture=args.agent_architecture,
                                 agent_command_json=agent_command_json,
+                                agent_evaluator_command_json=two_agent_command_json,
+                                agent_optimizer_command_json=two_agent_command_json,
                                 agent_max_iterations=args.agent_max_iterations,
+                                agent_max_retries_per_iteration=args.agent_max_retries_per_iteration,
                                 agent_timeout_sec=args.agent_timeout_sec))
 
 if __name__ == '__main__':

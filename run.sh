@@ -24,9 +24,10 @@ SYNC_BEFORE_ALLGATHER=0
 SYNC_AFTER_ALLGATHER=0
 ZERO3_TUNING_STRATEGY="baseline"
 AGENT_BACKEND=""
+AGENT_ARCHITECTURE="two_agent"
 AGENT_MAX_ITERATIONS=3
+AGENT_MAX_RETRIES_PER_ITERATION=1
 AGENT_TIMEOUT_SEC=300
-PASSES_SPECIFIED=0
 
 HOST_IP="127.0.0.1"
 MACHINE_RANK=0
@@ -92,7 +93,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         --passes)
             PASSES="$2"
-            PASSES_SPECIFIED=1
             EXTRA_OPTS="${EXTRA_OPTS} $1 $2"
             shift 2
             ;;
@@ -109,6 +109,10 @@ while [[ $# -gt 0 ]]; do
             ZERO3_TUNING_STRATEGY="agent"
             shift 2
             ;;
+        --agent_architecture)
+            AGENT_ARCHITECTURE="$2"
+            shift 2
+            ;;
         --codex_agent)
             AGENT_BACKEND="codex"
             ZERO3_TUNING_STRATEGY="agent"
@@ -116,6 +120,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --agent_max_iterations)
             AGENT_MAX_ITERATIONS="$2"
+            shift 2
+            ;;
+        --agent_max_retries_per_iteration)
+            AGENT_MAX_RETRIES_PER_ITERATION="$2"
             shift 2
             ;;
         --agent_timeout_sec)
@@ -180,14 +188,6 @@ if [ "${ZERO3_TUNING_STRATEGY}" == "agent" ]; then
         echo "Agent tuning requires --backend deepspeed"
         exit 1
     fi
-    if [ "${ZERO_STAGE}" != "3" ]; then
-        echo "Agent tuning currently requires --zero_stage 3"
-        exit 1
-    fi
-    if [ "${PASSES_SPECIFIED}" == "1" ]; then
-        echo "Agent tuning conflicts with --passes because DeepSpeed agent mode owns the warmup schedule"
-        exit 1
-    fi
     if [ -z "${AGENT_BACKEND}" ]; then
         echo "Agent tuning requires --agent_backend <name> or --codex_agent"
         exit 1
@@ -207,6 +207,7 @@ echo "BACKEND: ${BACKEND}"
 echo "ZERO_STAGE: ${ZERO_STAGE}"
 echo "ZERO3_TUNING_STRATEGY: ${ZERO3_TUNING_STRATEGY}"
 echo "AGENT_BACKEND: ${AGENT_BACKEND:-none}"
+echo "AGENT_ARCHITECTURE: ${AGENT_ARCHITECTURE}"
 echo "MODEL: ${MODEL}"
 echo "GRADIENT_ACCUMULATION_STEPS: ${GRADIENT_ACCUMULATION_STEPS}"
 echo "EXTRA_OPTS: ${EXTRA_OPTS}"
@@ -264,7 +265,9 @@ if [ "${BACKEND}" == "deepspeed" ]; then
         --zero_stage ${ZERO_STAGE} \
         --gradient_accumulation_steps ${GRADIENT_ACCUMULATION_STEPS} \
         --zero3_tuning_strategy ${ZERO3_TUNING_STRATEGY} \
+        --agent_architecture ${AGENT_ARCHITECTURE} \
         --agent_max_iterations ${AGENT_MAX_ITERATIONS} \
+        --agent_max_retries_per_iteration ${AGENT_MAX_RETRIES_PER_ITERATION} \
         --agent_timeout_sec ${AGENT_TIMEOUT_SEC} \
         ${DEEPCOMPILE_OPTS} ${DEBUG_LOG_OPTS} \
         ${SYNC_BEFORE_REDUCE_OPTS} ${SYNC_AFTER_REDUCE_OPTS} \
