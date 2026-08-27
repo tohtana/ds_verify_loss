@@ -188,19 +188,9 @@ The following parameters can be configured through command line arguments or env
 | `--activation_checkpointing` | `false` | Enable activation checkpointing |
 | `--compile` | `false` | Enable PyTorch compilation |
 | `--deepcompile` | `false` | Enable DeepSpeed compilation |
-| `--zero3_tuning_strategy` | `baseline` | Select fixed-pass or external-agent ZeRO-3 warmup tuning |
-| `--agent_architecture` | `two_agent` | Use the evaluator/optimizer pair when agent tuning is enabled |
-| `--agent_backend` | `None` | External agent command preset (`codex`) |
 | `--passes` | `ALL` | Compilation passes to use |
 | `--eager` | `false` | Use eager execution mode |
 | `--offload_opt_states` | `false` | Offload optimizer states to CPU |
-
-The `codex` agent preset resolves the persistent CLI installation under the workspace root (or the absolute executable
-set by `CODEX_BIN`) and pins every evaluator and optimizer invocation to `gpt-5.6-sol` with `xhigh` reasoning. It does
-not fall back to `PATH`. `--agent_max_retries_per_iteration` controls retries after mechanical edit-log failures.
-Agent subprocess timeouts terminate the wrapper and Codex process group. Real distributed candidate validation should
-still be launched under an external watchdog because an arbitrary malformed collective can hang the training process
-group before DeepCompile can report a failure.
 
 #### Memory and Performance
 | Parameter | Default | Description |

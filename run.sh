@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 NUM_NODES=${NUM_NODES:-1}
 NGPUS_PER_NODE=${NGPUS_PER_NODE:-$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l)}
@@ -14,7 +15,7 @@ EXTRA_OPTS=""
 EAGER=0
 DEEPCOMPILE=0
 GRADIENT_ACCUMULATION_STEPS=1
-ACTIVATION_CHECKPOINTING=1
+ACTIVATION_CHECKPOINTING=0
 BATCH_SIZE=1
 SEQ_LENGTH=512
 DEBUG_LOG=0
@@ -24,7 +25,7 @@ SYNC_BEFORE_ALLGATHER=0
 SYNC_AFTER_ALLGATHER=0
 ZERO3_TUNING_STRATEGY="baseline"
 AGENT_BACKEND=""
-AGENT_ARCHITECTURE="two_agent"
+AGENT_ARCHITECTURE="graph_agent"
 AGENT_MAX_ITERATIONS=3
 AGENT_MAX_RETRIES_PER_ITERATION=1
 AGENT_TIMEOUT_SEC=300
@@ -45,7 +46,7 @@ while [[ $# -gt 0 ]]; do
             MACHINE_RANK="$2"
             shift 2
             ;;
-        --main_process_port)
+        --main_process_port|--main-process-port)
             MAIN_PROCESS_PORT="$2"
             shift 2
             ;;
@@ -53,26 +54,26 @@ while [[ $# -gt 0 ]]; do
             BACKEND="$2"
             shift 2
             ;;
-        --zero_stage)
+        --zero_stage|--zero-stage)
             ZERO_STAGE="$2"
             shift 2
             ;;
-        --batch_size)
+        --batch_size|--batch-size)
             BATCH_SIZE="$2"
             EXTRA_OPTS="${EXTRA_OPTS} --batch_size $2"
             shift 2
             ;;
-        --seq_length)
+        --seq_length|--seq-length)
             SEQ_LENGTH="$2"
             EXTRA_OPTS="${EXTRA_OPTS} --seq_length $2"
             shift 2
             ;;
-        --gradient_accumulation_steps)
+        --gradient_accumulation_steps|--gradient-accumulation-steps)
             GRADIENT_ACCUMULATION_STEPS="$2"
             EXTRA_OPTS="${EXTRA_OPTS} --gradient_accumulation_steps $2"
             shift 2
             ;;
-        --activation_checkpointing)
+        --activation_checkpointing|--activation-checkpointing)
             ACTIVATION_CHECKPOINTING=1
             EXTRA_OPTS="${EXTRA_OPTS} --activation_checkpointing"
             shift
@@ -89,6 +90,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --deepcompile)
             DEEPCOMPILE=1
+            EXTRA_OPTS="${EXTRA_OPTS} --deepcompile"
             shift
             ;;
         --passes)
@@ -96,37 +98,37 @@ while [[ $# -gt 0 ]]; do
             EXTRA_OPTS="${EXTRA_OPTS} $1 $2"
             shift 2
             ;;
-        --model)
+        --model|--model_name|--model-name)
             MODEL="$2"
             shift 2
             ;;
-        --zero3_tuning_strategy)
+        --zero3_tuning_strategy|--zero3-tuning-strategy)
             ZERO3_TUNING_STRATEGY="$2"
             shift 2
             ;;
-        --agent_backend)
+        --agent_backend|--agent-backend)
             AGENT_BACKEND="$2"
             ZERO3_TUNING_STRATEGY="agent"
             shift 2
             ;;
-        --agent_architecture)
+        --agent_architecture|--agent-architecture)
             AGENT_ARCHITECTURE="$2"
             shift 2
             ;;
-        --codex_agent)
+        --codex_agent|--codex-agent)
             AGENT_BACKEND="codex"
             ZERO3_TUNING_STRATEGY="agent"
             shift
             ;;
-        --agent_max_iterations)
+        --agent_max_iterations|--agent-max-iterations)
             AGENT_MAX_ITERATIONS="$2"
             shift 2
             ;;
-        --agent_max_retries_per_iteration)
+        --agent_max_retries_per_iteration|--agent-max-retries-per-iteration)
             AGENT_MAX_RETRIES_PER_ITERATION="$2"
             shift 2
             ;;
-        --agent_timeout_sec)
+        --agent_timeout_sec|--agent-timeout-sec)
             AGENT_TIMEOUT_SEC="$2"
             shift 2
             ;;
@@ -179,24 +181,38 @@ elif [ "${BACKEND}" != "deepspeed" ]; then
     exit 1
 fi
 
+CONFIG_ZERO_STAGE="${ZERO_STAGE}"
+RUNTIME_ZERO_STAGE="${ZERO_STAGE}"
 if [ "${BACKEND}" != "deepspeed" ]; then
-    ZERO_STAGE=0
+    RUNTIME_ZERO_STAGE=0
 fi
 
 if [ "${ZERO3_TUNING_STRATEGY}" == "agent" ]; then
     if [ "${BACKEND}" != "deepspeed" ]; then
-        echo "Agent tuning requires --backend deepspeed"
-        exit 1
+        echo "Agent tuning requires --backend deepspeed" >&2
+        exit 2
     fi
     if [ -z "${AGENT_BACKEND}" ]; then
-        echo "Agent tuning requires --agent_backend <name> or --codex_agent"
-        exit 1
+        echo "Agent tuning requires --agent-backend <name> or --codex-agent" >&2
+        exit 2
+    fi
+    if ! [[ "${AGENT_TIMEOUT_SEC}" =~ ^[0-9]+$ ]] || (( AGENT_TIMEOUT_SEC <= 0 )); then
+        echo "--agent-timeout-sec must be a positive integer" >&2
+        exit 2
+    fi
+    if ! [[ "${AGENT_MAX_RETRIES_PER_ITERATION}" =~ ^[0-9]+$ ]]; then
+        echo "--agent-max-retries-per-iteration must be a nonnegative integer" >&2
+        exit 2
     fi
     if [ "${COMPILE}" != "1" ]; then
         COMPILE=1
         EXTRA_OPTS="${EXTRA_OPTS} --compile"
     fi
-    DEEPCOMPILE=1
+    if [ "${DEEPCOMPILE}" != "1" ]; then
+        DEEPCOMPILE=1
+        EXTRA_OPTS="${EXTRA_OPTS} --deepcompile"
+    fi
+    EXTRA_OPTS="${EXTRA_OPTS} --agent_timeout_sec ${AGENT_TIMEOUT_SEC} --agent_max_retries_per_iteration ${AGENT_MAX_RETRIES_PER_ITERATION}"
 fi
 
 echo "HOST_IP: ${HOST_IP}"
@@ -205,6 +221,8 @@ echo "NUM_NODES: ${NUM_NODES}"
 echo "NUM_PROCESSES: ${NUM_PROCESSES}"
 echo "BACKEND: ${BACKEND}"
 echo "ZERO_STAGE: ${ZERO_STAGE}"
+echo "CONFIG_ZERO_STAGE: ${CONFIG_ZERO_STAGE}"
+echo "RUNTIME_ZERO_STAGE: ${RUNTIME_ZERO_STAGE}"
 echo "ZERO3_TUNING_STRATEGY: ${ZERO3_TUNING_STRATEGY}"
 echo "AGENT_BACKEND: ${AGENT_BACKEND:-none}"
 echo "AGENT_ARCHITECTURE: ${AGENT_ARCHITECTURE}"
@@ -216,7 +234,7 @@ python generate_conf.py \
     --machine_rank ${MACHINE_RANK} \
     --num_machines ${NUM_NODES} \
     --num_processes ${NUM_PROCESSES} \
-    --zero_stage ${ZERO_STAGE} \
+    --zero_stage ${CONFIG_ZERO_STAGE} \
     --template_file ${CONFIG_TEMPLATE} \
     --output_file configs/config.yaml
 
@@ -284,12 +302,16 @@ mkdir -p ${LOG_DIR}
 LOG_FILE=${LOG_DIR}/debug_n${MACHINE_RANK}_${MODEL##*/}_${BACKEND}_np${NUM_PROCESSES}z${ZERO_STAGE}c${COMPILE}dc${DEEPCOMPILE}t${ZERO3_TUNING_STRATEGY}E${EAGER}b${BATCH_SIZE}seq${SEQ_LENGTH}g${GRADIENT_ACCUMULATION_STEPS}a${ACTIVATION_CHECKPOINTING}p${PASSES}.log
 echo "Logging to ${LOG_FILE}"
 
+set +e
 accelerate launch --main_process_ip ${HOST_IP} --main_process_port ${MAIN_PROCESS_PORT} \
 --num_machines ${NUM_NODES} --num_processes ${NUM_PROCESSES} --machine_rank ${MACHINE_RANK} \
 --config_file configs/config.yaml \
 verify_loss.py \
 --model_name "${MODEL}" \
---zero_stage ${ZERO_STAGE} \
+--zero_stage ${RUNTIME_ZERO_STAGE} \
 ${GAS_OPTS} \
 ${EXTRA_OPTS} \
 2>&1 | tee ${LOG_FILE}
+status=${PIPESTATUS[0]}
+set -e
+exit "${status}"

@@ -25,26 +25,20 @@ def get_args():
     parser.add_argument('--sync_before_allgather', action='store_true', help='Sync before allgather')
     parser.add_argument('--sync_after_allgather', action='store_true', help='Sync after allgather')
     parser.add_argument('--zero3_tuning_strategy',
-                        type=str,
                         choices=['baseline', 'agent'],
                         default='baseline',
                         help='ZeRO-3 warmup tuning strategy')
     parser.add_argument('--agent_backend',
-                        type=str,
                         choices=['codex'],
                         default=None,
-                        help='External agent preset to use when zero3_tuning_strategy=agent')
+                        help='External agent preset used by the agent tuning strategy')
     parser.add_argument('--agent_architecture',
-                        type=str,
-                        choices=['two_agent'],
-                        default='two_agent',
-                        help='DeepCompile evaluator/optimizer architecture')
-    parser.add_argument('--agent_max_iterations', type=int, default=3, help='Max tuning iterations for agent mode')
-    parser.add_argument('--agent_max_retries_per_iteration',
-                        type=int,
-                        default=1,
-                        help='Optimizer retries after a mechanical edit failure')
-    parser.add_argument('--agent_timeout_sec', type=int, default=300, help='Per-invocation timeout for agent mode')
+                        choices=['graph_agent'],
+                        default='graph_agent',
+                        help='DeepCompile graph-agent architecture')
+    parser.add_argument('--agent_max_iterations', type=int, default=3)
+    parser.add_argument('--agent_max_retries_per_iteration', type=int, default=1)
+    parser.add_argument('--agent_timeout_sec', type=int, default=300)
                         
     parser.add_argument('--template_file', type=Path, help='Template file')
     parser.add_argument('--output_file', type=Path, help='Output file')
@@ -55,17 +49,14 @@ def get_args():
 def resolve_agent_command_json(args):
     if args.zero3_tuning_strategy == 'agent' and args.agent_backend is None:
         raise ValueError("--agent_backend is required when --zero3_tuning_strategy agent is set")
-
     if args.zero3_tuning_strategy != 'agent' and args.agent_backend is not None:
         raise ValueError("--agent_backend requires --zero3_tuning_strategy agent")
 
     if args.agent_backend is None:
         return "null"
-
     if args.agent_backend == 'codex':
         wrapper_path = (Path(__file__).resolve().parent / "codex_agent_wrapper.py").resolve()
         return json.dumps([sys.executable, str(wrapper_path)])
-
     raise ValueError(f"Unsupported agent backend: {args.agent_backend}")
 
 
@@ -74,7 +65,6 @@ def main(args):
         template = Template(f.read())
 
     agent_command_json = resolve_agent_command_json(args)
-    two_agent_command_json = agent_command_json
     with open(args.output_file, 'w') as f:
         f.write(template.render(machine_rank=args.machine_rank,
                                 num_machines=args.num_machines,
@@ -91,8 +81,6 @@ def main(args):
                                 zero3_tuning_strategy=args.zero3_tuning_strategy,
                                 agent_architecture=args.agent_architecture,
                                 agent_command_json=agent_command_json,
-                                agent_evaluator_command_json=two_agent_command_json,
-                                agent_optimizer_command_json=two_agent_command_json,
                                 agent_max_iterations=args.agent_max_iterations,
                                 agent_max_retries_per_iteration=args.agent_max_retries_per_iteration,
                                 agent_timeout_sec=args.agent_timeout_sec))

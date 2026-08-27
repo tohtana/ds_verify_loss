@@ -1,16 +1,28 @@
 import os
 import argparse
+import json
+import platform
+import socket
 import time
-from datetime import datetime
+import traceback
+from datetime import datetime, timedelta
 from contextlib import nullcontext, contextmanager
-from typing import List
+from pathlib import Path
+from typing import Any, List, Optional
 
 import torch
 from transformers import AutoConfig, AutoModelForCausalLM, enable_full_determinism, set_seed
 from accelerate import Accelerator
+from accelerate.utils import InitProcessGroupKwargs
 import wandb
 
 from data_utils import get_tokenizer, load_and_prepare_dataset
+
+
+DEFAULT_NCCL_TIMEOUT_SEC = 600
+AGENT_TIMEOUT_MARGIN_MIN_SEC = 60
+AGENT_TIMEOUT_MARGIN_MAX_SEC = 300
+
 
 @contextmanager
 def use_default_device(device):
@@ -20,6 +32,17 @@ def use_default_device(device):
         yield
     finally:
         torch.set_default_device(prev_device)
+
+
+@contextmanager
+def use_default_dtype(dtype):
+    prev_dtype = torch.get_default_dtype()
+    torch.set_default_dtype(dtype)
+    try:
+        yield
+    finally:
+        torch.set_default_dtype(prev_dtype)
+
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -34,9 +57,11 @@ def get_args():
     parser.add_argument("--eval", action="store_true")
     parser.add_argument("--dataset_name", type=str, default="wikitext", help="Dataset name for pretraining evaluation")
     parser.add_argument("--dataset_percentage", type=float, default=10.0, help="Percentage of dataset to use (e.g., 10.0 for 10 percent)")
+    parser.add_argument("--dataset_samples", type=int, default=1024, help="Synthetic dataset sample count")
     parser.add_argument("--num_layers", type=int, default=0)
     parser.add_argument("--attn_impl", type=str, default="sdpa")
     parser.add_argument("--compile", action="store_true")
+    parser.add_argument("--deepcompile", action="store_true")
     parser.add_argument("--passes", type=str, default=None)
     parser.add_argument("--backend", type=str, default="inductor")
     parser.add_argument("--offload_opt_states", action="store_true")
@@ -44,12 +69,15 @@ def get_args():
     parser.add_argument("--deterministic", action="store_true")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
     parser.add_argument("--profile_dir", type=str, default=None)
+    parser.add_argument("--metrics_output", type=str, default=None)
     parser.add_argument("--bench_step", type=int, default=100)
     parser.add_argument("--warmup_step", type=int, default=15)
     parser.add_argument("--zero_stage", type=int, default=3)
     parser.add_argument("--log_interval", type=int, default=10)
     parser.add_argument("--save_weights", action="store_true")
     parser.add_argument("--load_weights", action="store_true")
+    parser.add_argument("--agent_timeout_sec", "--agent-timeout-sec", type=int, default=None)
+    parser.add_argument("--agent_max_retries_per_iteration", "--agent-max-retries-per-iteration", type=int, default=None)
     
     # WandB logging arguments
     parser.add_argument("--use_wandb", action="store_true", help="Enable wandb logging")
@@ -58,6 +86,67 @@ def get_args():
     parser.add_argument("--wandb_tags", type=str, nargs="+", default=[], help="WandB tags for the run")
 
     return parser.parse_args()
+
+
+def agent_process_group_timeout(agent_timeout_sec: int,
+                                agent_max_retries_per_iteration: int) -> timedelta:
+    if agent_timeout_sec <= 0:
+        raise ValueError("--agent-timeout-sec must be greater than zero")
+    if agent_max_retries_per_iteration < 0:
+        raise ValueError("--agent-max-retries-per-iteration must be nonnegative")
+    call_budget_sec = agent_timeout_sec * (agent_max_retries_per_iteration + 1)
+    margin_sec = min(max(call_budget_sec // 10, AGENT_TIMEOUT_MARGIN_MIN_SEC),
+                     AGENT_TIMEOUT_MARGIN_MAX_SEC)
+    timeout_sec = max(DEFAULT_NCCL_TIMEOUT_SEC, call_budget_sec + margin_sec)
+    return timedelta(seconds=timeout_sec)
+
+
+def create_accelerator(gradient_accumulation_steps: int,
+                       agent_timeout_sec: Optional[int],
+                       agent_max_retries_per_iteration: Optional[int] = None):
+    accelerator_kwargs = {"gradient_accumulation_steps": gradient_accumulation_steps}
+    if agent_timeout_sec is not None:
+        if agent_max_retries_per_iteration is None:
+            raise ValueError("--agent-max-retries-per-iteration is required with --agent-timeout-sec")
+        process_group_timeout = agent_process_group_timeout(
+            agent_timeout_sec,
+            agent_max_retries_per_iteration,
+        )
+        accelerator_kwargs["kwargs_handlers"] = [InitProcessGroupKwargs(timeout=process_group_timeout)]
+    elif agent_max_retries_per_iteration is not None:
+        raise ValueError("--agent-max-retries-per-iteration requires --agent-timeout-sec")
+    return Accelerator(**accelerator_kwargs)
+
+
+def write_json(path: Optional[str], payload: dict[str, Any]) -> None:
+    if not path:
+        return
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    tmp = output.with_suffix(output.suffix + ".tmp")
+    with open(tmp, "w") as f:
+        json.dump(payload, f, indent=2, sort_keys=True)
+        f.write("\n")
+    tmp.replace(output)
+
+
+def rank_from_env() -> int:
+    for name in ("RANK", "LOCAL_RANK", "SLURM_PROCID"):
+        value = os.environ.get(name)
+        if value is not None:
+            try:
+                return int(value)
+            except ValueError:
+                pass
+    return 0
+
+
+def exception_summary(exc: BaseException) -> dict[str, Any]:
+    return {
+        "type": type(exc).__name__,
+        "message": str(exc),
+        "traceback_tail": "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))[-4000:],
+    }
 
 
 def make_schedule(passes: List[str], warmup):
@@ -83,8 +172,7 @@ def make_schedule(passes: List[str], warmup):
     return schedule
 
 
-def main():
-    args = get_args()
+def main_impl(args):
     print(args)
 
     if args.passes is not None and "offload_adam_states" in args.passes:
@@ -97,7 +185,11 @@ def main():
     else:
         set_seed(args.seed)
 
-    accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps)
+    accelerator = create_accelerator(
+        args.gradient_accumulation_steps,
+        args.agent_timeout_sec,
+        args.agent_max_retries_per_iteration,
+    )
     device = accelerator.device
     is_deepspeed = accelerator.state.deepspeed_plugin is not None
     print(f"Running on device: {device} is_deepspeed: {is_deepspeed}")
@@ -109,10 +201,14 @@ def main():
     model_name = args.model_name
 
     if args.load_weights:
-        model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=True)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            torch_dtype=torch.bfloat16,
+            trust_remote_code=True,
+        )
     else:
         model_config = AutoConfig.from_pretrained(model_name, attn_implementation=args.attn_impl, trust_remote_code=True)
-        with use_default_device(device):
+        with use_default_device(device), use_default_dtype(torch.bfloat16):
             if args.num_layers > 0:
                 print(f"num_hidden_layers: {model_config.num_hidden_layers} -> {args.num_layers}")
                 model_config.num_hidden_layers = args.num_layers
@@ -121,7 +217,9 @@ def main():
     # Load tokenizer
     tokenizer = get_tokenizer(model_name, trust_remote_code=True)
 
-    if args.activation_checkpointing:
+    if args.activation_checkpointing and args.deepcompile and accelerator.is_main_process:
+        print("Skipping HF gradient checkpointing because DeepCompile owns selective activation persistence.")
+    if args.activation_checkpointing and not args.deepcompile:
         model.gradient_checkpointing_enable()
 
     # Load and prepare dataset
@@ -132,7 +230,8 @@ def main():
         seq_length=args.seq_length,
         accelerator=accelerator,
         batch_size=args.batch_size,
-        is_main_process=accelerator.is_main_process
+        is_main_process=accelerator.is_main_process,
+        dataset_samples=args.dataset_samples,
     )
 
     # Prepare optimizer
@@ -141,6 +240,8 @@ def main():
     # Prepare everything with accelerator
     model, optimizer, data_loader = accelerator.prepare(model, optimizer, data_loader)
     print(f"Model prepared: {model.__class__} optimizer: {optimizer.__class__}")
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
 
     # Determine experimental settings for logging
     is_deepcompile = is_deepspeed and hasattr(model, '_config') and hasattr(model._config, 'compile_config') and model._config.compile_config.deepcompile
@@ -197,7 +298,9 @@ def main():
 
     if is_deepspeed:
         if args.compile:
-            schedule = make_schedule(args.passes.split(","), warmup=5) if args.passes else None
+            schedule = None
+            if args.passes and not args.deepcompile:
+                schedule = make_schedule(args.passes.split(","), warmup=5)
             model.compile(backend=args.backend, schedule=schedule)
     else:
         if args.compile:
@@ -296,6 +399,59 @@ def main():
                 break
 
     iter_times = iter_times[args.warmup_step:]
+    if args.bench_step > args.warmup_step and not iter_times:
+        raise RuntimeError(
+            "No measured steps were collected after warmup. "
+            "Increase --dataset_samples or reduce --warmup_step/--bench_step."
+        )
+
+    local_avg_iter_time = sum(iter_times) / len(iter_times) if iter_times else 0.0
+    local_step_stats = torch.tensor(
+        [float(local_avg_iter_time), float(len(iter_times))],
+        dtype=torch.float64,
+        device=device,
+    )
+    try:
+        gathered_step_stats = accelerator.gather(local_step_stats).detach().cpu().reshape(-1, 2).tolist()
+        rank_step_times = [
+            {
+                "rank": index,
+                "avg_step_time_sec": float(values[0]),
+                "measured_steps": int(values[1]),
+            }
+            for index, values in enumerate(gathered_step_stats)
+        ]
+    except Exception as exc:
+        rank_step_times = []
+        if accelerator.is_main_process:
+            print(f"Warning: failed to gather rank timing stats: {type(exc).__name__}: {exc}")
+
+    local_memory_stats = torch.tensor(
+        [
+            float(torch.cuda.memory_allocated()) if torch.cuda.is_available() else 0.0,
+            float(torch.cuda.max_memory_allocated()) if torch.cuda.is_available() else 0.0,
+            float(torch.cuda.memory_reserved()) if torch.cuda.is_available() else 0.0,
+            float(torch.cuda.max_memory_reserved()) if torch.cuda.is_available() else 0.0,
+        ],
+        dtype=torch.float64,
+        device=device,
+    )
+    try:
+        gathered_memory_stats = accelerator.gather(local_memory_stats).detach().cpu().reshape(-1, 4).tolist()
+        rank_memory_stats = [
+            {
+                "rank": index,
+                "cuda_memory_allocated_bytes": int(values[0]),
+                "cuda_max_memory_allocated_bytes": int(values[1]),
+                "cuda_memory_reserved_bytes": int(values[2]),
+                "cuda_max_memory_reserved_bytes": int(values[3]),
+            }
+            for index, values in enumerate(gathered_memory_stats)
+        ]
+    except Exception as exc:
+        rank_memory_stats = []
+        if accelerator.is_main_process:
+            print(f"Warning: failed to gather rank memory stats: {type(exc).__name__}: {exc}")
 
     if accelerator.is_main_process:
         compile_time_sum = 0
@@ -304,10 +460,64 @@ def main():
             compile_time = model.get_compile_time()
             compile_time_sum = sum(t for _, _, _, t in compile_time)
 
-        avg_iter_time = sum(iter_times) / len(iter_times) if iter_times else 0
+        avg_iter_time = local_avg_iter_time
+        samples_per_step = args.batch_size * accelerator.num_processes * args.gradient_accumulation_steps
+        tokens_per_step = samples_per_step * args.seq_length
+        samples_per_second = samples_per_step / avg_iter_time if avg_iter_time > 0 else None
+        tokens_per_second = tokens_per_step / avg_iter_time if avg_iter_time > 0 else None
+        cuda_allocated = int(torch.cuda.memory_allocated()) if torch.cuda.is_available() else 0
+        cuda_max_allocated = int(torch.cuda.max_memory_allocated()) if torch.cuda.is_available() else 0
+        cuda_reserved = int(torch.cuda.memory_reserved()) if torch.cuda.is_available() else 0
+        cuda_max_reserved = int(torch.cuda.max_memory_reserved()) if torch.cuda.is_available() else 0
+        cuda_max_allocated_cross_rank = max(
+            [item["cuda_max_memory_allocated_bytes"] for item in rank_memory_stats] or [cuda_max_allocated]
+        )
+        cuda_max_reserved_cross_rank = max(
+            [item["cuda_max_memory_reserved_bytes"] for item in rank_memory_stats] or [cuda_max_reserved]
+        )
         
-        msg = f"{args.model_name} ds={is_deepspeed} np={accelerator.num_processes} batch_size={args.batch_size} seq={args.seq_length} zero_stage={args.zero_stage} acc={args.gradient_accumulation_steps} ac={args.activation_checkpointing} compile={args.compile} backend={args.backend} deepcompile={is_deepcompile} passes={args.passes} compile_time={compile_time_sum} iteration time: {avg_iter_time:.4f} alloc_mem: {torch.cuda.memory_allocated()} peak_mem: {torch.cuda.max_memory_allocated()}"
+        msg = f"{args.model_name} ds={is_deepspeed} np={accelerator.num_processes} batch_size={args.batch_size} seq={args.seq_length} zero_stage={args.zero_stage} acc={args.gradient_accumulation_steps} ac={args.activation_checkpointing} compile={args.compile} backend={args.backend} deepcompile={is_deepcompile} passes={args.passes} compile_time={compile_time_sum} iteration time: {avg_iter_time:.4f} samples/s: {samples_per_second} tokens/s: {tokens_per_second} alloc_mem: {cuda_allocated} peak_mem: {cuda_max_allocated} reserved_mem: {cuda_reserved} peak_reserved_mem: {cuda_max_reserved}"
         print(msg)
+
+        write_json(args.metrics_output, {
+            "status": "success",
+            "success": True,
+            "error_summary": None,
+            "generated_at": datetime.now().isoformat(),
+            "hostname": socket.gethostname(),
+            "platform": platform.platform(),
+            "model_name": args.model_name,
+            "backend": "deepspeed" if is_deepspeed else "accelerate",
+            "zero_stage": args.zero_stage,
+            "num_processes": accelerator.num_processes,
+            "batch_size_per_gpu": args.batch_size,
+            "gradient_accumulation_steps": args.gradient_accumulation_steps,
+            "seq_length": args.seq_length,
+            "dataset_name": args.dataset_name,
+            "dataset_percentage": args.dataset_percentage,
+            "dataset_samples": args.dataset_samples,
+            "activation_checkpointing": args.activation_checkpointing,
+            "compile": args.compile,
+            "deepcompile": args.deepcompile,
+            "is_deepcompile": is_deepcompile,
+            "global_samples_per_step": samples_per_step,
+            "global_tokens_per_step": tokens_per_step,
+            "bench_step": args.bench_step,
+            "warmup_step": args.warmup_step,
+            "measured_steps": len(iter_times),
+            "avg_step_time_sec": avg_iter_time,
+            "samples_per_second": samples_per_second,
+            "tokens_per_second": tokens_per_second,
+            "cuda_memory_allocated_bytes": cuda_allocated,
+            "cuda_max_memory_allocated_bytes": cuda_max_allocated,
+            "cuda_memory_reserved_bytes": cuda_reserved,
+            "cuda_max_memory_reserved_bytes": cuda_max_reserved,
+            "cuda_max_memory_allocated_cross_rank_bytes": cuda_max_allocated_cross_rank,
+            "cuda_max_memory_reserved_cross_rank_bytes": cuda_max_reserved_cross_rank,
+            "compile_time_sum_sec": compile_time_sum,
+            "rank_step_times": rank_step_times,
+            "rank_memory_stats": rank_memory_stats,
+        })
 
         # Log final summary metrics to wandb
         if args.use_wandb:
@@ -345,6 +555,33 @@ def main():
     #     unwrapped_model = accelerator.unwrap_model(model)
     #     unwrapped_model.save_pretrained("fine_tuned_model", save_function=accelerator.save)
     #     tokenizer.save_pretrained("fine_tuned_model")
+
+
+def main():
+    args = get_args()
+    try:
+        main_impl(args)
+    except Exception as exc:
+        if rank_from_env() == 0:
+            write_json(args.metrics_output, {
+                "status": "failure",
+                "success": False,
+                "generated_at": datetime.now().isoformat(),
+                "hostname": socket.gethostname(),
+                "platform": platform.platform(),
+                "model_name": args.model_name,
+                "batch_size_per_gpu": args.batch_size,
+                "seq_length": args.seq_length,
+                "zero_stage": args.zero_stage,
+                "bench_step": args.bench_step,
+                "warmup_step": args.warmup_step,
+                "activation_checkpointing": args.activation_checkpointing,
+                "compile": args.compile,
+                "deepcompile": args.deepcompile,
+                "error_summary": exception_summary(exc),
+            })
+        raise
+
 
 if __name__ == "__main__":
     torch._dynamo.config.accumulated_cache_size_limit = 256
